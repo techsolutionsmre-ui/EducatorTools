@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import logo from './assets/logo.svg';
 import heroImg from './assets/hero.png';
+import featureLayout from './assets/feature_layout.png';
+import featureMath from './assets/feature_math.png';
+import featureSecure from './assets/feature_secure.png';
+import authBanner from './assets/auth_banner.png';
 
 // Support email for activation inquiries
 const CONTACT_EMAIL = "support@educatortools.co.za";
@@ -419,19 +423,25 @@ export default function App() {
           {/* Feature Grid */}
           <div className="features-grid">
             <div className="feature-card">
-              <div className="feature-icon">🎯</div>
-              <h4>Layout Fidelity</h4>
-              <p>Preserves complex margins, page numbers, headers, and columns exactly like the original.</p>
+              <img src={featureLayout} className="feature-card-image" alt="Layout Fidelity Icon" />
+              <div className="feature-card-content">
+                <h4>Layout Fidelity</h4>
+                <p>Preserves complex margins, page numbers, headers, and columns exactly like the original.</p>
+              </div>
             </div>
             <div className="feature-card">
-              <div className="feature-icon">📐</div>
-              <h4>Math & Formulas</h4>
-              <p>Math equations and symbols stay fully editable inside Word—no broken text or images.</p>
+              <img src={featureMath} className="feature-card-image" alt="Math & Formulas Icon" />
+              <div className="feature-card-content">
+                <h4>Math & Formulas</h4>
+                <p>Math equations and symbols stay fully editable inside Word—no broken text or images.</p>
+              </div>
             </div>
             <div className="feature-card">
-              <div className="feature-icon">🔒</div>
-              <h4>Private & Secure</h4>
-              <p>We do not store your PDFs. Files are processed locally and deleted immediately after download.</p>
+              <img src={featureSecure} className="feature-card-image" alt="Private & Secure Icon" />
+              <div className="feature-card-content">
+                <h4>Private & Secure</h4>
+                <p>We do not store your PDFs. Files are processed locally and deleted immediately after download.</p>
+              </div>
             </div>
           </div>
 
@@ -451,7 +461,7 @@ export default function App() {
               <div className="step-connector">➔</div>
               <div className="step">
                 <div className="step-number">3</div>
-                <div className="step-text">Edit in Word</div>
+                <div className="step-text">Download Word</div>
               </div>
             </div>
           </div>
@@ -459,7 +469,10 @@ export default function App() {
       )}
 
       {view === 'login' && (
-        <div className="glass-panel" style={{ margin: 'auto 0' }}>
+        <div className="glass-panel" style={{ margin: 'auto 0', paddingTop: '20px' }}>
+          <div className="auth-banner-container">
+            <img src={authBanner} className="auth-banner-image" alt="EducatorTools Login illustration" />
+          </div>
           <div className="form-header">
             <h2>Teacher Login</h2>
             <p>Convert test papers to Word with 100% layout fidelity.</p>
@@ -504,7 +517,10 @@ export default function App() {
       )}
 
       {view === 'register' && (
-        <div className="glass-panel" style={{ margin: 'auto 0' }}>
+        <div className="glass-panel" style={{ margin: 'auto 0', paddingTop: '20px' }}>
+          <div className="auth-banner-container">
+            <img src={authBanner} className="auth-banner-image" alt="EducatorTools Signup illustration" />
+          </div>
           <div className="form-header">
             <h2>Educator Signup</h2>
             <p>Create your account to get started.</p>
