@@ -2,6 +2,7 @@ import os
 import shutil
 import tempfile
 import asyncio
+import secrets
 from datetime import datetime, timedelta
 from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, BackgroundTasks
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -15,6 +16,7 @@ import fitz
 import config
 import database
 import converter
+import email_service
 
 # Initialize database tables
 database.init_db()
@@ -37,14 +39,33 @@ conversion_semaphore = asyncio.Semaphore(config.MAX_CONCURRENT_CONVERSIONS)
 
 # Pydantic Schemas
 class RegisterSchema(BaseModel):
-    email: str
+    email: EmailStr
     password: str
     profession: str
+
+class VerifyEmailSchema(BaseModel):
+    email: EmailStr
+    code: str
+
+class ResendVerificationSchema(BaseModel):
+    email: EmailStr
 
 class UserResponse(BaseModel):
     email: str
     profession: str
     status: str
+    email_verified: bool
+
+class BillingInfoResponse(BaseModel):
+    price_zar: int
+    billing_period: str
+    admin_email: str
+    default_package_id: str
+    packages: list[dict]
+
+class CreditDetailsResponse(BaseModel):
+    message: str
+    email_sent: bool
 
 # Helper: JWT Operations
 def create_access_token(data: dict):
@@ -53,6 +74,9 @@ def create_access_token(data: dict):
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, config.JWT_SECRET, algorithm=config.JWT_ALGORITHM)
     return encoded_jwt
+
+def generate_verification_code():
+    return f"{secrets.randbelow(1000000):06d}"
 
 async def get_current_user(token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(
@@ -107,11 +131,46 @@ def register(user_data: RegisterSchema):
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered.")
         
-    success = database.create_user(email_clean, user_data.password, user_data.profession)
+    verification_code = generate_verification_code()
+    success = database.create_user(email_clean, user_data.password, user_data.profession, verification_code)
     if not success:
         raise HTTPException(status_code=500, detail="Error creating account.")
+
+    email_sent = email_service.send_verification_code(email_clean, verification_code)
+    email_service.notify_admin_new_registration(email_clean, user_data.profession)
         
-    return {"message": "Account created. Start your free trial today!"}
+    return {
+        "message": "Account created. Please verify your email before signing in.",
+        "requires_verification": True,
+        "email_sent": email_sent
+    }
+
+@app.post("/api/auth/verify-email")
+def verify_email(payload: VerifyEmailSchema):
+    code = payload.code.strip()
+    if len(code) != 6 or not code.isdigit():
+        raise HTTPException(status_code=400, detail="Enter the 6-digit verification code.")
+
+    if not database.verify_email_code(payload.email, code):
+        raise HTTPException(status_code=400, detail="Invalid or expired verification code.")
+
+    return {"message": "Email verified. You can now sign in."}
+
+@app.post("/api/auth/resend-verification")
+def resend_verification(payload: ResendVerificationSchema):
+    user = database.get_user_by_email(payload.email)
+    if not user:
+        raise HTTPException(status_code=404, detail="Account not found.")
+
+    if user["email_verified"]:
+        return {"message": "This email is already verified."}
+
+    verification_code = generate_verification_code()
+    if not database.set_verification_code(payload.email, verification_code):
+        raise HTTPException(status_code=500, detail="Could not create a new verification code.")
+
+    email_sent = email_service.send_verification_code(payload.email, verification_code)
+    return {"message": "A new verification code has been sent.", "email_sent": email_sent}
 
 @app.post("/api/auth/login")
 def login(form_data: OAuth2PasswordRequestForm = Depends()):
@@ -122,6 +181,12 @@ def login(form_data: OAuth2PasswordRequestForm = Depends()):
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    if user["profession"] != "Admin" and not user["email_verified"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Email not verified. Please enter the verification code sent to your email."
+        )
         
     access_token = create_access_token(data={"sub": user["email"]})
     return {"access_token": access_token, "token_type": "bearer"}
@@ -131,7 +196,32 @@ def get_me(current_user = Depends(get_current_user)):
     return {
         "email": current_user["email"],
         "profession": current_user["profession"],
-        "status": current_user["status"]
+        "status": current_user["status"],
+        "email_verified": bool(current_user["email_verified"])
+    }
+
+@app.get("/api/billing/info", response_model=BillingInfoResponse)
+def get_billing_info(current_user = Depends(get_current_user)):
+    if current_user["profession"] != "Admin" and not current_user["email_verified"]:
+        raise HTTPException(status_code=403, detail="Verify your email first.")
+
+    return {
+        "price_zar": config.SUBSCRIPTION_PRICE_ZAR,
+        "billing_period": "monthly",
+        "admin_email": config.ADMIN_EMAIL,
+        "default_package_id": config.DEFAULT_PACKAGE_ID,
+        "packages": config.PACKAGES,
+    }
+
+@app.post("/api/billing/request-credit-details", response_model=CreditDetailsResponse)
+def request_credit_details(current_user = Depends(get_current_user)):
+    if current_user["profession"] != "Admin" and not current_user["email_verified"]:
+        raise HTTPException(status_code=403, detail="Verify your email first.")
+
+    email_sent = email_service.send_credit_details(current_user["email"])
+    return {
+        "message": "Conversion credit details have been emailed to your registered email address.",
+        "email_sent": email_sent,
     }
 
 # --- CONVERTER ENDPOINTS ---
@@ -183,6 +273,22 @@ async def convert_pdf(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Free trial limit exceeded: Trial uploads are limited to a maximum of 4 pages. Please subscribe to convert longer documents."
                 )
+
+            if current_user["status"] == "active":
+                package = next(
+                    (item for item in config.PACKAGES if item["id"] == config.DEFAULT_PACKAGE_ID),
+                    config.PACKAGES[0],
+                )
+                usage = database.get_user_monthly_usage(current_user["id"])
+                next_page_count = usage["page_count"] + page_count
+                if next_page_count > package["monthly_pages"]:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail=(
+                            f"Monthly package limit reached. {package['name']} includes "
+                            f"{package['monthly_pages']} pages per month."
+                        )
+                    )
             
             # Run local conversion synchronously (it runs in thread-safe blocker)
             # Run in executor if necessary, but uvicorn handles async blocking routes smoothly

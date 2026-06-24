@@ -1,6 +1,7 @@
 import sqlite3
 import os
 import bcrypt
+from datetime import datetime, timedelta
 import config
 
 def get_db_connection():
@@ -23,6 +24,10 @@ def init_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     """)
+
+    _ensure_column(cursor, "users", "email_verified", "INTEGER NOT NULL DEFAULT 0")
+    _ensure_column(cursor, "users", "verification_code_hash", "TEXT")
+    _ensure_column(cursor, "users", "verification_expires_at", "TIMESTAMP")
     
     # 2. Create conversions table
     cursor.execute("""
@@ -38,19 +43,40 @@ def init_db():
     );
     """)
     
-    # 3. Create default Administrator if it doesn't exist
-    cursor.execute("SELECT id FROM users WHERE email = 'admin@educatortools.co.za'")
+    # 3. Ensure the configured administrator exists and the legacy default is removed.
+    cursor.execute("SELECT id FROM users WHERE email = ?", (config.ADMIN_EMAIL,))
     admin = cursor.fetchone()
+    admin_hash = hash_password(config.ADMIN_PASSWORD)
     if not admin:
-        admin_hash = hash_password("AdminPassword123!") # Default secure fallback password
         cursor.execute(
-            "INSERT INTO users (email, password_hash, profession, status) VALUES (?, ?, ?, ?)",
-            ('admin@educatortools.co.za', admin_hash, 'Admin', 'active')
+            "INSERT INTO users (email, password_hash, profession, status, email_verified) VALUES (?, ?, ?, ?, ?)",
+            (config.ADMIN_EMAIL, admin_hash, 'Admin', 'active', 1)
         )
-        print("Default administrator created (admin@educatortools.co.za / AdminPassword123!)")
+        print(f"Default administrator created ({config.ADMIN_EMAIL})")
+    else:
+        cursor.execute(
+            """
+            UPDATE users
+            SET password_hash = ?, profession = 'Admin', status = 'active', email_verified = 1,
+                verification_code_hash = NULL, verification_expires_at = NULL
+            WHERE email = ?
+            """,
+            (admin_hash, config.ADMIN_EMAIL)
+        )
+
+    cursor.execute(
+        "DELETE FROM users WHERE email = ? AND profession = 'Admin'",
+        ("admin@educatortools.co.za",)
+    )
         
     conn.commit()
     conn.close()
+
+def _ensure_column(cursor, table: str, column: str, definition: str):
+    cursor.execute(f"PRAGMA table_info({table})")
+    existing_columns = {row["name"] for row in cursor.fetchall()}
+    if column not in existing_columns:
+        cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
 # Password Helpers
 def hash_password(password: str) -> str:
@@ -66,14 +92,22 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         return False
 
 # User Helpers
-def create_user(email: str, password_plain: str, profession: str) -> bool:
+def create_user(email: str, password_plain: str, profession: str, verification_code: str) -> bool:
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
         pw_hash = hash_password(password_plain)
+        verification_hash = hash_password(verification_code)
+        expires_at = datetime.utcnow() + timedelta(minutes=15)
         cursor.execute(
-            "INSERT INTO users (email, password_hash, profession, status) VALUES (?, ?, ?, ?)",
-            (email.strip().lower(), pw_hash, profession, 'trial')
+            """
+            INSERT INTO users (
+                email, password_hash, profession, status, email_verified,
+                verification_code_hash, verification_expires_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (email.strip().lower(), pw_hash, profession, 'trial', 0, verification_hash, expires_at.isoformat())
         )
         conn.commit()
         return True
@@ -115,6 +149,58 @@ def update_user_status(user_id: int, status: str) -> bool:
     conn.close()
     return rows_changed
 
+def set_verification_code(email: str, code: str) -> bool:
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    verification_hash = hash_password(code)
+    expires_at = datetime.utcnow() + timedelta(minutes=15)
+    cursor.execute(
+        """
+        UPDATE users
+        SET verification_code_hash = ?, verification_expires_at = ?
+        WHERE email = ? AND email_verified = 0
+        """,
+        (verification_hash, expires_at.isoformat(), email.strip().lower())
+    )
+    conn.commit()
+    rows_changed = cursor.rowcount > 0
+    conn.close()
+    return rows_changed
+
+def verify_email_code(email: str, code: str) -> bool:
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id, verification_code_hash, verification_expires_at FROM users WHERE email = ?",
+        (email.strip().lower(),)
+    )
+    user = cursor.fetchone()
+    if not user or not user["verification_code_hash"] or not user["verification_expires_at"]:
+        conn.close()
+        return False
+
+    try:
+        expires_at = datetime.fromisoformat(user["verification_expires_at"])
+    except ValueError:
+        conn.close()
+        return False
+
+    if expires_at < datetime.utcnow() or not verify_password(code, user["verification_code_hash"]):
+        conn.close()
+        return False
+
+    cursor.execute(
+        """
+        UPDATE users
+        SET email_verified = 1, verification_code_hash = NULL, verification_expires_at = NULL
+        WHERE id = ?
+        """,
+        (user["id"],)
+    )
+    conn.commit()
+    conn.close()
+    return True
+
 # Conversion Helpers
 def add_conversion(user_id: int, filename: str, page_count: int, file_size: int, status: str):
     conn = get_db_connection()
@@ -133,3 +219,22 @@ def get_user_conversions(user_id: int):
     rows = [dict(row) for row in cursor.fetchall()]
     conn.close()
     return rows
+
+def get_user_monthly_usage(user_id: int):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT COALESCE(SUM(page_count), 0) AS page_count
+        FROM conversions
+        WHERE user_id = ?
+          AND status = 'success'
+          AND strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now')
+        """,
+        (user_id,)
+    )
+    row = cursor.fetchone()
+    conn.close()
+    return {
+        "page_count": row["page_count"] if row else 0,
+    }

@@ -1,0 +1,38 @@
+services:
+  api:
+    build: .
+    container_name: educator-tools-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "127.0.0.1:8010:8000"
+    environment:
+      JWT_SECRET: "${JWT_SECRET}"
+      MAX_CONCURRENT_CONVERSIONS: "${MAX_CONCURRENT_CONVERSIONS:-1}"
+      MAX_CPU_THREADS: "${MAX_CPU_THREADS:-1}"
+      SUBSCRIPTION_PRICE_ZAR: "${SUBSCRIPTION_PRICE_ZAR:-29}"
+      DEFAULT_PACKAGE_ID: "${DEFAULT_PACKAGE_ID:-starter}"
+      ADMIN_EMAIL: "${ADMIN_EMAIL}"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD}"
+      CONTACT_EMAIL: "${CONTACT_EMAIL}"
+      SMTP_HOST: "${SMTP_HOST}"
+      SMTP_PORT: "${SMTP_PORT:-587}"
+      SMTP_SECURE: "${SMTP_SECURE:-false}"
+      SMTP_USER: "${SMTP_USER}"
+      SMTP_PASS: "${SMTP_PASS}"
+      SMTP_PASSWORD: "${SMTP_PASSWORD}"
+      SMTP_FROM: "${SMTP_FROM}"
+      EMAIL_USER: "${EMAIL_USER}"
+      EMAIL_PASSWORD: "${EMAIL_PASSWORD}"
+      EMAIL_FROM: "${EMAIL_FROM}"
+    volumes:
+      - educator_tools_data:/app/backend/data
+    deploy:
+      resources:
+        limits:
+          cpus: "1.5"
+          memory: 2g
+
+volumes:
+  educator_tools_data:

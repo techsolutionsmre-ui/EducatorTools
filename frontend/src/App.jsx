@@ -7,7 +7,7 @@ import featureSecure from './assets/feature_secure.png';
 import authBanner from './assets/auth_banner.png';
 
 // Support email for activation inquiries
-const CONTACT_EMAIL = "support@educatortools.co.za";
+const CONTACT_EMAIL = "techsolutions.mre@gmail.com";
 
 // API Base URL (relative to root for Vercel/Docker deployment)
 const API_URL = '/api';
@@ -15,7 +15,7 @@ const API_URL = '/api';
 export default function App() {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('token') || '');
-  const [view, setView] = useState('landing'); // 'landing', 'login', 'register', 'dashboard', 'admin'
+  const [view, setView] = useState('landing'); // 'landing', 'login', 'register', 'verify', 'dashboard', 'admin'
   const [history, setHistory] = useState([]);
   const [adminUsers, setAdminUsers] = useState([]);
   const [downloadUrl, setDownloadUrl] = useState(null);
@@ -37,6 +37,8 @@ export default function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [profession, setProfession] = useState('Primary School Teacher');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [pendingVerificationEmail, setPendingVerificationEmail] = useState('');
   
   // Upload and Conversion states
   const [file, setFile] = useState(null);
@@ -159,6 +161,10 @@ export default function App() {
       if (res.status === 200) {
         setToken(data.access_token);
       } else {
+        if (res.status === 403 && data.detail?.toLowerCase().includes('verified')) {
+          setPendingVerificationEmail(email);
+          setView('verify');
+        }
         setError(data.detail || 'Login failed. Please check credentials.');
       }
     } catch (err) {
@@ -186,8 +192,12 @@ export default function App() {
       });
       const data = await res.json();
       if (res.status === 200) {
-        setSuccess('Registration successful! Please log in below.');
-        setView('login');
+        setPendingVerificationEmail(email);
+        setVerificationCode('');
+        setSuccess(data.email_sent
+          ? 'Registration successful. Enter the verification code sent to your email.'
+          : 'Registration successful, but email delivery failed. Please contact support for the verification code.');
+        setView('verify');
       } else {
         setError(data.detail || 'Registration failed.');
       }
@@ -195,6 +205,75 @@ export default function App() {
       setError('Registration API failed. Running offline client simulation.');
       setUser({ email, profession, status: 'pending' });
       setView('dashboard');
+    }
+  };
+
+  const handleVerifyEmail = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    const targetEmail = pendingVerificationEmail || email;
+    try {
+      const res = await fetch(`${API_URL}/auth/verify-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: targetEmail, code: verificationCode })
+      });
+      const data = await res.json();
+      if (res.status === 200) {
+        setSuccess(data.message || 'Email verified. Please sign in.');
+        setView('login');
+      } else {
+        setError(data.detail || 'Verification failed.');
+      }
+    } catch (err) {
+      setError('Verification API failed. Please try again.');
+    }
+  };
+
+  const handleResendVerification = async () => {
+    setError('');
+    setSuccess('');
+    const targetEmail = pendingVerificationEmail || email;
+    if (!targetEmail) {
+      setError('Enter your email address first.');
+      return;
+    }
+    try {
+      const res = await fetch(`${API_URL}/auth/resend-verification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: targetEmail })
+      });
+      const data = await res.json();
+      if (res.status === 200) {
+        setSuccess(data.message || 'Verification code sent.');
+      } else {
+        setError(data.detail || 'Could not resend verification code.');
+      }
+    } catch (err) {
+      setError('Could not reach the verification service.');
+    }
+  };
+
+  const handleRequestCredits = async () => {
+    setError('');
+    setSuccess('');
+    try {
+      const res = await fetch(`${API_URL}/billing/request-credit-details`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.status === 200) {
+        setSuccess(data.email_sent
+          ? 'Conversion credit details have been emailed to you.'
+          : 'We could not send the email. Please contact support.');
+      } else {
+        setError(data.detail || 'Could not request conversion credit details.');
+      }
+    } catch (err) {
+      setError('Could not reach the billing email service.');
     }
   };
 
@@ -580,6 +659,67 @@ export default function App() {
         </div>
       )}
 
+      {view === 'verify' && (
+        <div className="auth-container">
+          <div className="auth-banner-container">
+            <img src={authBanner} className="auth-banner-image" alt="EducatorTools verification illustration" />
+          </div>
+          <div className="form-header">
+            <h2>Verify Email</h2>
+            <p>Enter the 6-digit code sent to your email.</p>
+          </div>
+          <form onSubmit={handleVerifyEmail}>
+            <div className="input-group">
+              <label className="input-label">Email Address</label>
+              <input
+                type="email"
+                required
+                className="input-control"
+                value={pendingVerificationEmail || email}
+                onChange={e => {
+                  setPendingVerificationEmail(e.target.value);
+                  setEmail(e.target.value);
+                }}
+              />
+            </div>
+            <div className="input-group">
+              <label className="input-label">Verification Code</label>
+              <input
+                type="text"
+                required
+                inputMode="numeric"
+                maxLength="6"
+                className="input-control"
+                placeholder="000000"
+                value={verificationCode}
+                onChange={e => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                style={{ textAlign: 'center', fontSize: '22px', fontWeight: 700 }}
+              />
+            </div>
+            <button type="submit" className="btn btn-primary" style={{ marginTop: '24px' }}>
+              Verify & Continue
+            </button>
+          </form>
+          <button
+            type="button"
+            className="btn"
+            onClick={handleResendVerification}
+            style={{ marginTop: '12px', background: '#E2E8F0', color: 'var(--text-primary)' }}
+          >
+            Resend Code
+          </button>
+          <div style={{ textAlign: 'center', marginTop: '16px', fontSize: '13px' }}>
+            <span style={{ color: 'var(--text-secondary)' }}>Already verified? </span>
+            <span
+              style={{ color: 'var(--accent-blue)', cursor: 'pointer', fontWeight: 600 }}
+              onClick={() => { setView('login'); setError(''); setSuccess(''); }}
+            >
+              Log In
+            </span>
+          </div>
+        </div>
+      )}
+
       {view === 'dashboard' && user && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1 }}>
           
@@ -605,6 +745,14 @@ export default function App() {
                 <p style={{ marginTop: '4px', color: 'var(--text-secondary)' }}>
                   You have <strong>{remainingTrials}</strong> remaining trial conversion{remainingTrials !== 1 ? 's' : ''} (max 4 pages per upload).
                 </p>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={handleRequestCredits}
+                  style={{ marginTop: '12px', background: '#E2E8F0', color: 'var(--text-primary)' }}
+                >
+                  Email Me Credit Details
+                </button>
               </div>
             </div>
           )}
@@ -618,6 +766,14 @@ export default function App() {
                 <p style={{ marginTop: '6px', color: 'var(--text-secondary)' }}>
                   Your account registration has been received and is awaiting administrator activation.
                 </p>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={handleRequestCredits}
+                  style={{ marginTop: '12px', background: '#E2E8F0', color: 'var(--text-primary)' }}
+                >
+                  Email Me Credit Details
+                </button>
                 <p style={{ marginTop: '10px', fontSize: '11px', color: 'var(--text-secondary)' }}>
                   If you have already paid or need assistance, please contact support at <strong>{CONTACT_EMAIL}</strong>.
                 </p>

@@ -41,7 +41,7 @@ body {
   background: var(--bg-color);
   background-image: var(--bg-gradient);
   color: var(--text-primary);
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -69,16 +69,16 @@ body {
 .app-container {
   width: 100%;
   max-width: 460px;
-  height: 100vh;
+  min-height: 100dvh;
   background: #FFFFFF;
-  border-left: 1px solid #E2E8F0;
-  border-right: 1px solid #E2E8F0;
+  border-left: none;
+  border-right: none;
   display: flex;
   flex-direction: column;
   position: relative;
   box-shadow: none;
-  padding: 16px;
-  overflow: hidden;
+  padding: 12px;
+  overflow: visible;
 }
 
 @media (min-width: 461px) {
@@ -98,11 +98,17 @@ body {
 /* Main scrollable content area */
 .app-content {
   flex: 1;
-  overflow-y: auto;
-  scrollbar-gutter: stable;
+  overflow: visible;
   display: flex;
   flex-direction: column;
   width: 100%;
+}
+
+@media (min-width: 461px) {
+  .app-content {
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+  }
 }
 
 /* Glassmorphism Panel */
@@ -878,13 +884,14 @@ body {
   display: flex;
   flex-direction: column;
   width: 100%;
-  margin: auto 0;
+  max-width: none;
+  margin: 0;
   padding: 0;
 }
 
 /* Auth Header Banner Styles */
 .auth-banner-container {
-  height: 140px;
+  height: 104px;
   overflow: hidden;
   border-radius: var(--border-radius-md);
   background: #F8FAFC;
@@ -899,4 +906,52 @@ body {
   width: 100%;
   object-fit: cover;
   object-position: center;
+}
+
+@media (max-width: 460px) {
+  ::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+
+  html {
+    scrollbar-width: none;
+  }
+
+  body {
+    display: block;
+    background: #FFFFFF;
+  }
+
+  .app-header {
+    padding: 6px 0 12px 0;
+    margin-bottom: 12px;
+  }
+
+  .auth-banner-container {
+    height: 88px;
+    margin-bottom: 14px;
+  }
+
+  .form-header {
+    margin-bottom: 12px;
+  }
+
+  .input-group {
+    margin-bottom: 10px;
+  }
+
+  .btn {
+    padding: 11px;
+  }
+
+  .glass-panel {
+    padding: 16px;
+  }
+
+  .history-list {
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+  }
 }

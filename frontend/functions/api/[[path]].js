@@ -3,7 +3,10 @@ export async function onRequest(context) {
   const url = new URL(request.url);
   
   // Get the backend API base URL from environment variables, or fallback to the OCI IP placeholder
-  const backendBaseUrl = env.BACKEND_API_URL || 'http://CHANGE_TO_YOUR_OCI_IP_OR_DOMAIN:8000';
+  const configuredBackendBaseUrl = env.BACKEND_API_URL || 'https://tools.masondoacademy.co.za';
+  const backendBaseUrl = /^https?:\/\//i.test(configuredBackendBaseUrl)
+    ? configuredBackendBaseUrl
+    : `https://${configuredBackendBaseUrl}`;
   
   // Construct the target URL (e.g. /api/auth/login -> http://YOUR_OCI_IP:8000/api/auth/login)
   const targetUrl = `${backendBaseUrl}${url.pathname}${url.search}`;
