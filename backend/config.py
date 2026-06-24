@@ -9,6 +9,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 Days token lifespan
 CONTACT_EMAIL = os.getenv("CONTACT_EMAIL", os.getenv("ADMIN_EMAIL", "techsolutions.mre@gmail.com"))
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "techsolutions.mre@gmail.com").strip().lower()
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "ChangeThisAdminPassword123!")
+FRONTEND_APP_URL = os.getenv("FRONTEND_APP_URL", "https://educatortools.pages.dev").rstrip("/")
 SUBSCRIPTION_PRICE_ZAR = int(os.getenv("SUBSCRIPTION_PRICE_ZAR", "29"))
 DEFAULT_PACKAGE_ID = os.getenv("DEFAULT_PACKAGE_ID", "starter")
 PACKAGES = [

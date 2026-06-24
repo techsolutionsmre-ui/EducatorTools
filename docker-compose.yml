@@ -15,6 +15,7 @@ services:
       DEFAULT_PACKAGE_ID: "${DEFAULT_PACKAGE_ID:-starter}"
       ADMIN_EMAIL: "${ADMIN_EMAIL}"
       ADMIN_PASSWORD: "${ADMIN_PASSWORD}"
+      FRONTEND_APP_URL: "${FRONTEND_APP_URL:-https://educatortools.pages.dev}"
       CONTACT_EMAIL: "${CONTACT_EMAIL}"
       SMTP_HOST: "${SMTP_HOST}"
       SMTP_PORT: "${SMTP_PORT:-587}"

@@ -6,7 +6,7 @@ from pathlib import Path
 import config
 
 
-APP_URL = "https://tools.masondoacademy.co.za"
+APP_URL = config.FRONTEND_APP_URL
 
 
 def _sender_header():
