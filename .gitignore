@@ -1,0 +1,33 @@
+# Node dependencies and builds
+frontend/node_modules/
+frontend/dist/
+frontend/.eslintcache
+frontend/npm-debug.log*
+
+# Python dependencies and bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+backend/__pycache__/
+backend/*.py[cod]
+.venv/
+venv/
+ENV/
+env/
+
+# Databases
+backend/data/educator_tools.db
+backend/data/*.db
+*.db
+*.sqlite
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
