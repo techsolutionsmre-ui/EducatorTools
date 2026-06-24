@@ -745,6 +745,9 @@ export default function App() {
                 <p style={{ marginTop: '4px', color: 'var(--text-secondary)' }}>
                   You have <strong>{remainingTrials}</strong> remaining trial conversion{remainingTrials !== 1 ? 's' : ''} (max 4 pages per upload).
                 </p>
+                <p style={{ marginTop: '8px', color: 'var(--text-secondary)' }}>
+                  Need more conversion credits? Request the details by email, pay by EFT, then reply to that email with proof of payment.
+                </p>
                 <button
                   type="button"
                   className="btn"
@@ -765,6 +768,9 @@ export default function App() {
                 <strong>Account Pending Activation</strong>
                 <p style={{ marginTop: '6px', color: 'var(--text-secondary)' }}>
                   Your account registration has been received and is awaiting administrator activation.
+                </p>
+                <p style={{ marginTop: '8px', color: 'var(--text-secondary)' }}>
+                  If you still need payment instructions, request them below. After paying, reply to the emailed instructions with proof of payment. Once approved, return here and sign in again.
                 </p>
                 <button
                   type="button"
