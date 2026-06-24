@@ -108,30 +108,30 @@ docker rm educator-tools-instance
 
 ---
 
-## Part 3: Frontend Deployment on Vercel
+## Part 3: Frontend Deployment on Cloudflare Pages
 
-Vercel hosts the client React code. We configure a rewrite rule so that API requests go directly to your OCI server.
+Cloudflare Pages hosts the client React code. We configure a Pages Function to act as a reverse proxy so that API requests go directly to your OCI server.
 
-### Step 1: Configure the API Rewrite Rule
-1. Open the [frontend/vercel.json](file:///C:/Users/Masondo/Downloads/EducatorTools/frontend/vercel.json) file on your computer.
-2. Replace `CHANGE_TO_YOUR_OCI_IP_OR_DOMAIN` with the public IP address of your OCI server (or domain name, if you mapped one).
-3. Commit and push the changes:
-   ```json
-   {
-     "rewrites": [
-       {
-         "source": "/api/:path*",
-         "destination": "http://129.151.XX.XX:8000/api/:path*"
-       }
-     ]
-   }
-   ```
-*Why this is important:* In production, Vercel serves files via HTTPS. The browser would block raw calls to another IP due to CORS restrictions. The Vercel `rewrites` configuration acts as a proxy, receiving requests on `/api` and forwarding them securely to OCI.
+### Step 1: Configure the API Proxy Target
+Instead of hardcoding your OCI server IP in configuration files, we use a Cloudflare Environment Variable. This keeps your configuration clean and dynamic.
 
-### Step 2: Deploy on Vercel Dashboard
-1. Go to [Vercel](https://vercel.com/) and log in.
-2. Click **Add New Project** and select your `EducatorTools` GitHub repository.
-3. Under **Project Settings**:
-   *   **Root Directory**: Click "Edit" and choose the **`frontend`** directory. (Vercel will build Vite/React in isolation).
-   *   **Framework Preset**: Leave it as `Vite` (automatically detected).
-4. Click **Deploy**. Vercel will compile the React code and output a public domain (e.g. `educator-tools.vercel.app`).
+1. Commit and push the frontend changes (including the `frontend/functions/api/[[path]].js` file and the `frontend/public/_redirects` file).
+2. Go to the [Cloudflare Dashboard](https://dash.cloudflare.com/) and navigate to **Workers & Pages**.
+3. Create a new Pages project connected to your GitHub repository.
+
+### Step 2: Configure Cloudflare Pages Build & Environment
+In the Cloudflare Pages build settings screen (as shown in your screenshot):
+
+1. **Framework Preset**: Select `React (Vite)`.
+2. **Build Command**: Set to `npm run build`.
+3. **Build Output Directory**: Set to `dist`.
+4. **Root Directory (Advanced)**: 
+   * Expand this section.
+   * Set the root directory to **`frontend`**. This is critical because the React application lives in the `/frontend` subfolder.
+5. **Environment Variables (Advanced)**:
+   * Expand this section.
+   * Add a new environment variable:
+     * **Variable Name**: `BACKEND_API_URL`
+     * **Value**: `http://YOUR_OCI_PUBLIC_IP:8000` (Replace with your actual OCI server IP address, keeping the `:8000` port prefix).
+6. Click **Save and Deploy**. Cloudflare Pages will build the React code and set up the edge proxy function automatically, serving your application on a custom `*.pages.dev` subdomain with HTTPS enabled.
+
