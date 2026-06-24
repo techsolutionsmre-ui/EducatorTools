@@ -69,7 +69,7 @@ body {
 .app-container {
   width: 100%;
   max-width: 460px;
-  min-height: 100vh;
+  height: 100vh;
   background: #FFFFFF;
   border-left: 1px solid #E2E8F0;
   border-right: 1px solid #E2E8F0;
@@ -78,6 +78,7 @@ body {
   position: relative;
   box-shadow: none;
   padding: 16px;
+  overflow: hidden;
 }
 
 @media (min-width: 461px) {
@@ -92,6 +93,16 @@ body {
     border: 1px solid #E2E8F0;
     overflow: hidden;
   }
+}
+
+/* Main scrollable content area */
+.app-content {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
 }
 
 /* Glassmorphism Panel */
@@ -165,7 +176,7 @@ body {
 
 /* Inputs */
 .input-group {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   width: 100%;
 }
 
@@ -181,12 +192,12 @@ body {
 
 .input-control {
   width: 100%;
-  padding: 12px 16px;
+  padding: 10px 14px;
   background: #FFFFFF;
   border: 1px solid #CBD5E1;
   border-radius: var(--border-radius-sm);
   color: var(--text-primary);
-  font-size: 15px;
+  font-size: 14px;
   transition: all 0.2s ease;
   outline: none;
 }
@@ -199,19 +210,19 @@ body {
 /* Form Styles */
 .form-header {
   text-align: center;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .form-header h2 {
-  font-size: 24px;
+  font-size: 21px;
   font-weight: 800;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   color: var(--text-primary);
 }
 
 .form-header p {
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: 13px;
 }
 
 /* Drag & Drop Zone */
@@ -269,7 +280,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 4px 16px 4px;
+  padding: 8px 0 16px 0;
   border-bottom: 1px solid rgba(15, 23, 42, 0.05);
   margin-bottom: 16px;
   width: 100%;
@@ -705,9 +716,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  flex: 1;
-  overflow-y: auto;
-  padding-right: 4px;
+  width: 100%;
 }
 
 /* Hero Section */
@@ -717,7 +726,7 @@ body {
   align-items: center;
   text-align: center;
   gap: 20px;
-  padding: 8px 4px 16px 4px;
+  padding: 8px 0 16px 0;
 }
 
 .hero-title {
@@ -864,23 +873,30 @@ body {
   font-weight: 600;
 }
 
+/* Auth Layout Container */
+.auth-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin: auto 0;
+  padding: 0;
+}
+
 /* Auth Header Banner Styles */
 .auth-banner-container {
-  width: calc(100% + 40px);
-  margin: -20px -20px 20px -20px;
-  height: 120px;
+  height: 140px;
   overflow: hidden;
-  border-top-left-radius: var(--border-radius-md);
-  border-top-right-radius: var(--border-radius-md);
+  border-radius: var(--border-radius-md);
   background: #F8FAFC;
-  border-bottom: 1px solid var(--panel-border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  border: 1px solid var(--panel-border);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.03);
+  margin-bottom: 20px;
+  width: 100%;
 }
 
 .auth-banner-image {
   height: 100%;
   width: 100%;
   object-fit: cover;
+  object-position: center;
 }

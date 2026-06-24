@@ -396,7 +396,8 @@ export default function App() {
       )}
 
       {/* RENDER VIEW CONTROLLER */}
-      {view === 'landing' && (
+      <main className="app-content">
+        {view === 'landing' && (
         <div className="landing-page">
           {/* Hero Section */}
           <div className="hero-section">
@@ -469,7 +470,7 @@ export default function App() {
       )}
 
       {view === 'login' && (
-        <div className="glass-panel" style={{ margin: 'auto 0', paddingTop: '20px' }}>
+        <div className="auth-container">
           <div className="auth-banner-container">
             <img src={authBanner} className="auth-banner-image" alt="EducatorTools Login illustration" />
           </div>
@@ -517,7 +518,7 @@ export default function App() {
       )}
 
       {view === 'register' && (
-        <div className="glass-panel" style={{ margin: 'auto 0', paddingTop: '20px' }}>
+        <div className="auth-container">
           <div className="auth-banner-container">
             <img src={authBanner} className="auth-banner-image" alt="EducatorTools Signup illustration" />
           </div>
@@ -825,6 +826,7 @@ export default function App() {
           </div>
         </div>
       )}
+      </main>
 
       {/* FOOTER */}
       <footer style={{ textAlign: 'center', padding: '12px 0 4px 0', fontSize: '11px', color: 'var(--text-muted)', borderTop: '1px solid rgba(255, 255, 255, 0.03)' }}>
