@@ -28,6 +28,10 @@ def init_db():
     _ensure_column(cursor, "users", "email_verified", "INTEGER NOT NULL DEFAULT 0")
     _ensure_column(cursor, "users", "verification_code_hash", "TEXT")
     _ensure_column(cursor, "users", "verification_expires_at", "TIMESTAMP")
+    _ensure_column(cursor, "users", "package_id", f"TEXT NOT NULL DEFAULT '{config.DEFAULT_PACKAGE_ID}'")
+    _ensure_column(cursor, "users", "activated_at", "TIMESTAMP")
+    _ensure_column(cursor, "users", "billing_period_starts_at", "TIMESTAMP")
+    _ensure_column(cursor, "users", "expires_at", "TIMESTAMP")
     
     # 2. Create conversions table
     cursor.execute("""
@@ -135,7 +139,25 @@ def get_user_by_id(user_id: int):
 def list_all_users():
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, email, profession, status, created_at FROM users WHERE profession != 'Admin' ORDER BY created_at DESC")
+    cursor.execute(
+        """
+        UPDATE users
+        SET status = 'pending'
+        WHERE status = 'active'
+          AND profession != 'Admin'
+          AND (expires_at IS NULL OR datetime(expires_at) <= datetime('now'))
+        """
+    )
+    conn.commit()
+    cursor.execute(
+        """
+        SELECT id, email, profession, status, created_at, package_id,
+               activated_at, billing_period_starts_at, expires_at
+        FROM users
+        WHERE profession != 'Admin'
+        ORDER BY created_at DESC
+        """
+    )
     users = [dict(row) for row in cursor.fetchall()]
     conn.close()
     return users
@@ -144,6 +166,43 @@ def update_user_status(user_id: int, status: str) -> bool:
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("UPDATE users SET status = ? WHERE id = ?", (status, user_id))
+    conn.commit()
+    rows_changed = cursor.rowcount > 0
+    conn.close()
+    return rows_changed
+
+def activate_subscription(user_id: int, package_id: str, expires_at: datetime) -> bool:
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    now = datetime.utcnow().isoformat()
+    cursor.execute(
+        """
+        UPDATE users
+        SET status = 'active',
+            package_id = ?,
+            activated_at = COALESCE(activated_at, ?),
+            billing_period_starts_at = ?,
+            expires_at = ?
+        WHERE id = ?
+        """,
+        (package_id, now, now, expires_at.isoformat(), user_id)
+    )
+    conn.commit()
+    rows_changed = cursor.rowcount > 0
+    conn.close()
+    return rows_changed
+
+def expire_subscription(user_id: int) -> bool:
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        UPDATE users
+        SET status = 'pending'
+        WHERE id = ? AND status = 'active'
+        """,
+        (user_id,)
+    )
     conn.commit()
     rows_changed = cursor.rowcount > 0
     conn.close()
@@ -220,7 +279,7 @@ def get_user_conversions(user_id: int):
     conn.close()
     return rows
 
-def get_user_monthly_usage(user_id: int):
+def get_user_period_usage(user_id: int, period_start: datetime, period_end: datetime):
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute(
@@ -229,12 +288,22 @@ def get_user_monthly_usage(user_id: int):
         FROM conversions
         WHERE user_id = ?
           AND status = 'success'
-          AND strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now')
+          AND datetime(created_at) >= datetime(?)
+          AND datetime(created_at) < datetime(?)
         """,
-        (user_id,)
+        (user_id, period_start.isoformat(), period_end.isoformat())
     )
     row = cursor.fetchone()
     conn.close()
     return {
         "page_count": row["page_count"] if row else 0,
     }
+
+def get_user_monthly_usage(user_id: int):
+    now = datetime.utcnow()
+    period_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    if period_start.month == 12:
+        period_end = period_start.replace(year=period_start.year + 1, month=1)
+    else:
+        period_end = period_start.replace(month=period_start.month + 1)
+    return get_user_period_usage(user_id, period_start, period_end)

@@ -16,6 +16,12 @@ const FALLBACK_PACKAGES = [
   { id: 'teacher-plus', name: 'Conversion Plus', price_zar: 49, billing_period: 'monthly', monthly_pages: 100 }
 ];
 
+const getDefaultPaidUntil = () => {
+  const date = new Date();
+  date.setMonth(date.getMonth() + 1);
+  return date.toISOString().slice(0, 10);
+};
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('token') || '');
@@ -27,6 +33,7 @@ export default function App() {
   const [billingPackages, setBillingPackages] = useState(FALLBACK_PACKAGES);
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 460px)').matches);
   const [isTrialInfoOpen, setIsTrialInfoOpen] = useState(() => !window.matchMedia('(max-width: 460px)').matches);
+  const [adminActivationDrafts, setAdminActivationDrafts] = useState({});
 
   const resetUploadState = () => {
     if (downloadUrl && downloadUrl !== '#mock-download') {
@@ -160,6 +167,18 @@ export default function App() {
       if (res.status === 200) {
         const data = await res.json();
         setAdminUsers(data);
+        setAdminActivationDrafts(prev => {
+          const next = { ...prev };
+          data.forEach(item => {
+            if (!next[item.id]) {
+              next[item.id] = {
+                packageId: item.package_id || 'starter',
+                paidUntil: item.expires_at ? item.expires_at.slice(0, 10) : getDefaultPaidUntil()
+              };
+            }
+          });
+          return next;
+        });
       }
     } catch (err) {
       // Mock data for preview
@@ -340,6 +359,54 @@ export default function App() {
       // Offline fallback
       setAdminUsers(prev => prev.map(u => u.id === userId ? { ...u, status: action } : u));
       setSuccess(`Mock User updated to ${action}!`);
+    }
+  };
+
+  const handleActivationDraftChange = (userId, field, value) => {
+    setAdminActivationDrafts(prev => ({
+      ...prev,
+      [userId]: {
+        packageId: prev[userId]?.packageId || 'starter',
+        paidUntil: prev[userId]?.paidUntil || getDefaultPaidUntil(),
+        [field]: value
+      }
+    }));
+  };
+
+  const handleActivateSubscription = async (userId) => {
+    setError('');
+    setSuccess('');
+    const draft = adminActivationDrafts[userId] || {
+      packageId: 'starter',
+      paidUntil: getDefaultPaidUntil()
+    };
+
+    try {
+      const res = await fetch(`${API_URL}/admin/activate/${userId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          package_id: draft.packageId,
+          paid_until: draft.paidUntil
+        })
+      });
+      const data = await res.json();
+      if (res.status === 200) {
+        setSuccess(data.message || 'Subscription activated.');
+        fetchAdminUsers();
+      } else {
+        setError(data.detail || 'Failed to activate subscription.');
+      }
+    } catch (err) {
+      setAdminUsers(prev => prev.map(item => (
+        item.id === userId
+          ? { ...item, status: 'active', package_id: draft.packageId, expires_at: `${draft.paidUntil}T23:59:59` }
+          : item
+      )));
+      setSuccess('Subscription activated in offline preview mode.');
     }
   };
 
@@ -1003,42 +1070,76 @@ export default function App() {
             <div style={{ flex: 1, overflowY: 'auto', maxHeight: '420px', paddingRight: '4px' }}>
               {adminUsers
                 .filter(u => u.email.toLowerCase().includes(adminSearch.toLowerCase()))
-                .map(targetUser => (
+                .map(targetUser => {
+                  const activationDraft = adminActivationDrafts[targetUser.id] || {
+                    packageId: targetUser.package_id || 'starter',
+                    paidUntil: targetUser.expires_at ? targetUser.expires_at.slice(0, 10) : getDefaultPaidUntil()
+                  };
+                  const activePackage = billingPackages.find(item => item.id === targetUser.package_id);
+                  return (
                   <div key={targetUser.id} className="user-row">
                     <div className="user-row-header">
                       <span className="user-email">{targetUser.email}</span>
                       <span className={`badge badge-${targetUser.status}`}>{targetUser.status}</span>
                     </div>
                     <div className="user-profession">Profession: {targetUser.profession}</div>
+                    {targetUser.expires_at && (
+                      <div className="user-subscription">
+                        <span>{activePackage?.name || targetUser.package_id || 'No package'}</span>
+                        <span>Paid through: {targetUser.expires_at ? new Date(targetUser.expires_at).toLocaleDateString() : 'Not set'}</span>
+                      </div>
+                    )}
+                    {(targetUser.status === 'pending' || targetUser.status === 'suspended' || targetUser.status === 'active') && (
+                      <div className="activation-controls">
+                        <select
+                          className="input-control"
+                          value={activationDraft.packageId}
+                          onChange={e => handleActivationDraftChange(targetUser.id, 'packageId', e.target.value)}
+                        >
+                          {billingPackages.map(item => (
+                            <option key={item.id} value={item.id}>
+                              {item.name} - R{item.price_zar}/{item.billing_period}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          type="date"
+                          className="input-control"
+                          value={activationDraft.paidUntil}
+                          onChange={e => handleActivationDraftChange(targetUser.id, 'paidUntil', e.target.value)}
+                        />
+                      </div>
+                    )}
                     
                     <div className="user-actions" style={{ marginTop: '8px' }}>
-                      {targetUser.status === 'pending' && (
+                      {(targetUser.status === 'pending' || targetUser.status === 'suspended') && (
                         <button 
                           className="btn-small btn-small-success"
-                          onClick={() => handleUserStatusUpdate(targetUser.id, 'active')}
+                          onClick={() => handleActivateSubscription(targetUser.id)}
                         >
-                          Approve EFT (Activate)
+                          Approve EFT
                         </button>
                       )}
                       {targetUser.status === 'active' && (
-                        <button 
-                          className="btn-small btn-small-danger"
-                          onClick={() => handleUserStatusUpdate(targetUser.id, 'suspended')}
-                        >
-                          Suspend Account
-                        </button>
-                      )}
-                      {targetUser.status === 'suspended' && (
-                        <button 
-                          className="btn-small btn-small-success"
-                          onClick={() => handleUserStatusUpdate(targetUser.id, 'active')}
-                        >
-                          Re-Activate
-                        </button>
+                        <>
+                          <button
+                            className="btn-small btn-small-success"
+                            onClick={() => handleActivateSubscription(targetUser.id)}
+                          >
+                            Renew EFT
+                          </button>
+                          <button 
+                            className="btn-small btn-small-danger"
+                            onClick={() => handleUserStatusUpdate(targetUser.id, 'suspended')}
+                          >
+                            Suspend
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>
-                ))}
+                );
+              })}
             </div>
           </div>
         </div>

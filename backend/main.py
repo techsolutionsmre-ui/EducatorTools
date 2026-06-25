@@ -4,6 +4,7 @@ import tempfile
 import asyncio
 import secrets
 from datetime import datetime, timedelta
+from typing import Optional
 from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, BackgroundTasks
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
@@ -55,6 +56,9 @@ class UserResponse(BaseModel):
     profession: str
     status: str
     email_verified: bool
+    package_id: Optional[str] = None
+    billing_period_starts_at: Optional[str] = None
+    expires_at: Optional[str] = None
 
 class BillingInfoResponse(BaseModel):
     price_zar: int
@@ -67,6 +71,10 @@ class CreditDetailsResponse(BaseModel):
     message: str
     email_sent: bool
 
+class ActivateSubscriptionSchema(BaseModel):
+    package_id: str
+    paid_until: Optional[str] = None
+
 # Helper: JWT Operations
 def create_access_token(data: dict):
     to_encode = data.copy()
@@ -77,6 +85,43 @@ def create_access_token(data: dict):
 
 def generate_verification_code():
     return f"{secrets.randbelow(1000000):06d}"
+
+def get_package(package_id: str | None):
+    return next(
+        (item for item in config.PACKAGES if item["id"] == package_id),
+        next((item for item in config.PACKAGES if item["id"] == config.DEFAULT_PACKAGE_ID), config.PACKAGES[0]),
+    )
+
+def parse_datetime(value: str | None):
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError:
+        return None
+
+def parse_paid_until(value: str | None):
+    if not value:
+        return datetime.utcnow() + timedelta(days=30)
+    try:
+        if len(value) == 10:
+            return datetime.fromisoformat(f"{value}T23:59:59")
+        return datetime.fromisoformat(value)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid paid-until date.")
+
+def ensure_subscription_current(user):
+    if user["status"] != "active" or user["profession"] == "Admin":
+        return user
+
+    expires_at = parse_datetime(user["expires_at"])
+    if not expires_at or expires_at <= datetime.utcnow():
+        database.expire_subscription(user["id"])
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Monthly EFT subscription has expired. Please request credit details and renew your account."
+        )
+    return user
 
 async def get_current_user(token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(
@@ -98,6 +143,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     return user
 
 async def get_active_user(current_user = Depends(get_current_user)):
+    current_user = ensure_subscription_current(current_user)
     status_val = current_user["status"]
     if status_val not in ["active", "trial"]:
         raise HTTPException(
@@ -193,11 +239,19 @@ def login(form_data: OAuth2PasswordRequestForm = Depends()):
 
 @app.get("/api/auth/me", response_model=UserResponse)
 def get_me(current_user = Depends(get_current_user)):
+    if current_user["profession"] != "Admin" and current_user["status"] == "active":
+        try:
+            current_user = ensure_subscription_current(current_user)
+        except HTTPException:
+            current_user = database.get_user_by_id(current_user["id"])
     return {
         "email": current_user["email"],
         "profession": current_user["profession"],
         "status": current_user["status"],
-        "email_verified": bool(current_user["email_verified"])
+        "email_verified": bool(current_user["email_verified"]),
+        "package_id": current_user["package_id"],
+        "billing_period_starts_at": current_user["billing_period_starts_at"],
+        "expires_at": current_user["expires_at"],
     }
 
 @app.get("/api/billing/info", response_model=BillingInfoResponse)
@@ -275,11 +329,17 @@ async def convert_pdf(
                 )
 
             if current_user["status"] == "active":
-                package = next(
-                    (item for item in config.PACKAGES if item["id"] == config.DEFAULT_PACKAGE_ID),
-                    config.PACKAGES[0],
-                )
-                usage = database.get_user_monthly_usage(current_user["id"])
+                package = get_package(current_user["package_id"])
+                period_start = parse_datetime(current_user["billing_period_starts_at"])
+                period_end = parse_datetime(current_user["expires_at"])
+                if not period_start or not period_end:
+                    database.expire_subscription(current_user["id"])
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Monthly EFT subscription requires renewal before converting."
+                    )
+
+                usage = database.get_user_period_usage(current_user["id"], period_start, period_end)
                 next_page_count = usage["page_count"] + page_count
                 if next_page_count > package["monthly_pages"]:
                     raise HTTPException(
@@ -352,6 +412,27 @@ def get_admin_users(current_user = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Admin permissions required.")
     return database.list_all_users()
 
+@app.post("/api/admin/activate/{user_id}")
+def activate_subscription(user_id: int, payload: ActivateSubscriptionSchema, current_user = Depends(get_current_user)):
+    if current_user["profession"] != "Admin":
+        raise HTTPException(status_code=403, detail="Admin permissions required.")
+
+    package = get_package(payload.package_id)
+    if package["id"] != payload.package_id:
+        raise HTTPException(status_code=400, detail="Invalid package.")
+
+    paid_until = parse_paid_until(payload.paid_until)
+    if paid_until <= datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Paid-until date must be in the future.")
+
+    success = database.activate_subscription(user_id, package["id"], paid_until)
+    if not success:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    return {
+        "message": f"User activated on {package['name']} until {paid_until.date().isoformat()}."
+    }
+
 @app.post("/api/admin/status/{user_id}")
 def update_status(user_id: int, status: str, current_user = Depends(get_current_user)):
     if current_user["profession"] != "Admin":
@@ -359,6 +440,9 @@ def update_status(user_id: int, status: str, current_user = Depends(get_current_
         
     if status not in ["pending", "active", "suspended"]:
         raise HTTPException(status_code=400, detail="Invalid status value.")
+
+    if status == "active":
+        raise HTTPException(status_code=400, detail="Use subscription activation to activate an EFT package.")
         
     success = database.update_user_status(user_id, status)
     if not success:
