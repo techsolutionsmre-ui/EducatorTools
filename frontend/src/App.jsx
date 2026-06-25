@@ -721,7 +721,7 @@ export default function App() {
       )}
 
       {view === 'dashboard' && user && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1 }}>
+        <div className="dashboard-layout">
           
           {/* Active profile stats */}
           <div className="profile-row">
@@ -788,7 +788,7 @@ export default function App() {
           )}
 
           {/* CONVERTER CARD */}
-          <div className="glass-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <div className="glass-panel converter-panel">
             {conversionStatus === 'uploading' || conversionStatus === 'converting' ? (
               <div className="progress-container">
                 <div className="spinner"></div>
@@ -886,7 +886,7 @@ export default function App() {
           </div>
 
           {/* HISTORY SECTION */}
-          <div className="glass-panel" style={{ maxHeight: '310px', display: 'flex', flexDirection: 'column' }}>
+          <div className="glass-panel history-panel">
             <h3 className="section-title">Conversion History</h3>
             {history.length === 0 ? (
               <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
@@ -920,7 +920,7 @@ export default function App() {
 
       {/* ADMIN PANEL VIEW */}
       {view === 'admin' && user && user.profession === 'Admin' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1 }}>
+        <div className="admin-layout">
           <div className="profile-row">
             <div className="profile-avatar" style={{ background: 'var(--gradient-gold)' }}>AD</div>
             <div className="profile-details">
@@ -929,7 +929,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className="glass-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <div className="glass-panel admin-panel">
             <div className="section-title">
               <span>Teacher Registrations</span>
               <span style={{ fontSize: '11px', color: 'var(--accent-gold)' }}>EFT Management</span>
