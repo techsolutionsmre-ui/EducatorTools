@@ -693,6 +693,69 @@ body {
   color: var(--accent-blue);
 }
 
+.banner-content {
+  min-width: 0;
+  width: 100%;
+}
+
+.banner-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+
+.banner-toggle-icon {
+  display: none;
+  color: var(--accent-blue);
+  font-size: 20px;
+  line-height: 1;
+  transition: transform 0.2s ease;
+}
+
+.banner-collapsible {
+  display: block;
+}
+
+.package-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.package-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #FFFFFF;
+  border: 1px solid rgba(2, 132, 199, 0.12);
+  border-radius: var(--border-radius-sm);
+}
+
+.package-name {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.package-meta {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-align: right;
+  white-space: nowrap;
+}
+
 /* Sign In Button in Header */
 .btn-signin {
   padding: 6px 14px;
@@ -1295,6 +1358,37 @@ body {
 
   .glass-panel {
     padding: 16px;
+  }
+
+  .banner-toggle {
+    cursor: pointer;
+  }
+
+  .banner-toggle-icon {
+    display: inline-flex;
+  }
+
+  .banner-toggle[aria-expanded="true"] .banner-toggle-icon {
+    transform: rotate(180deg);
+  }
+
+  .banner-collapsible {
+    display: none;
+  }
+
+  .banner-collapsible.is-open {
+    display: block;
+  }
+
+  .package-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .package-meta {
+    text-align: left;
+    white-space: normal;
   }
 
   .history-list {

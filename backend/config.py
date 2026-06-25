@@ -15,14 +15,14 @@ DEFAULT_PACKAGE_ID = os.getenv("DEFAULT_PACKAGE_ID", "starter")
 PACKAGES = [
     {
         "id": "starter",
-        "name": "Starter",
+        "name": "Conversion Starter",
         "price_zar": 29,
         "billing_period": "monthly",
         "monthly_pages": 29,
     },
     {
         "id": "teacher-plus",
-        "name": "Teacher Plus",
+        "name": "Conversion Plus",
         "price_zar": 49,
         "billing_period": "monthly",
         "monthly_pages": 100,

@@ -11,6 +11,10 @@ const CONTACT_EMAIL = "techsolutions.mre@gmail.com";
 
 // API Base URL (relative to root for Vercel/Docker deployment)
 const API_URL = '/api';
+const FALLBACK_PACKAGES = [
+  { id: 'starter', name: 'Conversion Starter', price_zar: 29, billing_period: 'monthly', monthly_pages: 29 },
+  { id: 'teacher-plus', name: 'Conversion Plus', price_zar: 49, billing_period: 'monthly', monthly_pages: 100 }
+];
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -20,6 +24,9 @@ export default function App() {
   const [adminUsers, setAdminUsers] = useState([]);
   const [downloadUrl, setDownloadUrl] = useState(null);
   const [downloadFilename, setDownloadFilename] = useState('');
+  const [billingPackages, setBillingPackages] = useState(FALLBACK_PACKAGES);
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 460px)').matches);
+  const [isTrialInfoOpen, setIsTrialInfoOpen] = useState(() => !window.matchMedia('(max-width: 460px)').matches);
 
   const resetUploadState = () => {
     if (downloadUrl && downloadUrl !== '#mock-download') {
@@ -65,6 +72,18 @@ export default function App() {
     }
   }, [token]);
 
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 460px)');
+    const handleChange = (event) => {
+      setIsMobile(event.matches);
+      setIsTrialInfoOpen(!event.matches);
+    };
+
+    handleChange(mediaQuery);
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
   // Fetch profile
   const fetchProfile = async () => {
     try {
@@ -79,6 +98,7 @@ export default function App() {
         } else {
           setView('dashboard');
         }
+        fetchBillingInfo();
         fetchHistory();
       } else {
         handleLogout();
@@ -92,6 +112,21 @@ export default function App() {
         status: 'pending' // 'active' to test active, 'pending' to test pending
       });
       setView('dashboard');
+    }
+  };
+
+  const fetchBillingInfo = async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_URL}/billing/info`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.status === 200) {
+        const data = await res.json();
+        setBillingPackages(data.packages?.length ? data.packages : FALLBACK_PACKAGES);
+      }
+    } catch (err) {
+      setBillingPackages(FALLBACK_PACKAGES);
     }
   };
 
@@ -740,22 +775,42 @@ export default function App() {
           {user.status === 'trial' && (
             <div className="banner banner-info">
               <span className="banner-icon">ℹ️</span>
-              <div>
-                <strong>Free Trial Account</strong>
-                <p style={{ marginTop: '4px', color: 'var(--text-secondary)' }}>
-                  You have <strong>{remainingTrials}</strong> remaining trial conversion{remainingTrials !== 1 ? 's' : ''} (max 4 pages per upload).
-                </p>
-                <p style={{ marginTop: '8px', color: 'var(--text-secondary)' }}>
-                  Need more conversion credits? Request the details by email, pay by EFT, then reply to that email with proof of payment.
-                </p>
+              <div className="banner-content">
                 <button
                   type="button"
-                  className="btn"
-                  onClick={handleRequestCredits}
-                  style={{ marginTop: '12px', background: '#E2E8F0', color: 'var(--text-primary)' }}
+                  className="banner-toggle"
+                  aria-expanded={isTrialInfoOpen}
+                  onClick={() => isMobile && setIsTrialInfoOpen(open => !open)}
                 >
-                  Email Me Credit Details
+                  <strong>Free Trial Account</strong>
+                  <span className="banner-toggle-icon" aria-hidden="true">⌄</span>
                 </button>
+                <div className={`banner-collapsible ${isTrialInfoOpen ? 'is-open' : ''}`}>
+                  <p style={{ marginTop: '4px', color: 'var(--text-secondary)' }}>
+                    You have <strong>{remainingTrials}</strong> remaining trial conversion{remainingTrials !== 1 ? 's' : ''} (max 4 pages per upload).
+                  </p>
+                  <p style={{ marginTop: '8px', color: 'var(--text-secondary)' }}>
+                    Need more conversion credits? Request the details by email, pay by EFT, then reply to that email with proof of payment.
+                  </p>
+                  <div className="package-list" aria-label="Available conversion packages">
+                    {billingPackages.map(item => (
+                      <div className="package-row" key={item.id}>
+                        <span className="package-name">{item.name}</span>
+                        <span className="package-meta">
+                          R{item.price_zar}/{item.billing_period} · {item.monthly_pages} pages
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={handleRequestCredits}
+                    style={{ marginTop: '12px', background: '#E2E8F0', color: 'var(--text-primary)' }}
+                  >
+                    Email Me Credit Details
+                  </button>
+                </div>
               </div>
             </div>
           )}
