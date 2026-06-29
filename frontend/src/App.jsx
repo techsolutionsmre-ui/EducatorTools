@@ -1132,7 +1132,7 @@ export default function App() {
                   paidUntil: targetUser.expires_at ? targetUser.expires_at.slice(0, 10) : getDefaultPaidUntil(),
                   adminNote: targetUser.admin_note || ''
                 };
-                const canApprove = ['pending', 'suspended', 'active'].includes(targetUser.status);
+                const canApprove = ['trial', 'pending', 'suspended', 'active'].includes(targetUser.status);
                 return (
                   <div key={targetUser.id} className="user-row">
                     <div className="user-main">
