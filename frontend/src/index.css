@@ -613,6 +613,7 @@ body {
 
 .admin-user-list {
   flex: 1;
+  overflow-x: hidden;
   overflow-y: auto;
   max-height: 440px;
   padding-right: 4px;
@@ -672,14 +673,17 @@ body {
 
 .activation-controls {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 136px minmax(0, 0.9fr);
+  grid-template-columns: minmax(0, 1fr) minmax(126px, 0.7fr) minmax(0, 0.9fr);
   gap: 6px;
+  min-width: 0;
 }
 
 .activation-controls .input-control {
   min-height: 32px;
   padding: 6px 8px;
   font-size: 12px;
+  min-width: 0;
+  width: 100%;
 }
 
 .user-actions {
@@ -1321,10 +1325,17 @@ body {
 
   .user-row {
     display: grid;
-    grid-template-columns: minmax(190px, 1fr) minmax(210px, 0.9fr) minmax(360px, 1.4fr) auto;
+    grid-template-columns: minmax(180px, 1fr) minmax(180px, 0.9fr) auto;
     align-items: center;
     gap: 10px;
     padding: 9px 10px;
+  }
+
+  .activation-controls {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    grid-template-columns: minmax(180px, 0.9fr) 150px minmax(160px, 1fr);
+    max-width: 720px;
   }
 
   .user-profession {
@@ -1332,6 +1343,8 @@ body {
   }
 
   .user-actions {
+    grid-column: 3;
+    grid-row: 1;
     justify-content: flex-end;
   }
 
