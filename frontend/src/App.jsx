@@ -66,6 +66,7 @@ export default function App() {
   
   // Admin search state
   const [adminSearch, setAdminSearch] = useState('');
+  const [adminFilter, setAdminFilter] = useState('needs-action');
 
   // Fetch user profile on start if token exists
   useEffect(() => {
@@ -173,7 +174,8 @@ export default function App() {
             if (!next[item.id]) {
               next[item.id] = {
                 packageId: item.package_id || 'starter',
-                paidUntil: item.expires_at ? item.expires_at.slice(0, 10) : getDefaultPaidUntil()
+                paidUntil: item.expires_at ? item.expires_at.slice(0, 10) : getDefaultPaidUntil(),
+                adminNote: item.admin_note || ''
               };
             }
           });
@@ -183,8 +185,8 @@ export default function App() {
     } catch (err) {
       // Mock data for preview
       setAdminUsers([
-        { id: 101, email: 'john.wced@school.za', profession: 'Primary School Teacher', status: 'pending', created_at: new Date().toISOString() },
-        { id: 102, email: 'sara.dbe@highschool.za', profession: 'CAT Teacher', status: 'active', created_at: new Date(Date.now() - 3600000 * 48).toISOString() },
+        { id: 101, email: 'john.wced@school.za', profession: 'Primary School Teacher', status: 'pending', created_at: new Date().toISOString(), last_credit_details_requested_at: new Date().toISOString() },
+        { id: 102, email: 'sara.dbe@highschool.za', profession: 'CAT Teacher', status: 'active', created_at: new Date(Date.now() - 3600000 * 48).toISOString(), expires_at: getDefaultPaidUntil(), package_id: 'teacher-plus', admin_note: 'Proof received' },
         { id: 103, email: 'peter@primary.co.za', profession: 'Intermediate Phase', status: 'suspended', created_at: new Date().toISOString() }
       ]);
     }
@@ -390,7 +392,8 @@ export default function App() {
         },
         body: JSON.stringify({
           package_id: draft.packageId,
-          paid_until: draft.paidUntil
+          paid_until: draft.paidUntil,
+          admin_note: draft.adminNote || ''
         })
       });
       const data = await res.json();
@@ -527,6 +530,43 @@ export default function App() {
 
   const successfulTrials = history.filter(item => item.status === 'success').length;
   const remainingTrials = Math.max(0, 3 - successfulTrials);
+  const nowTime = Date.now();
+  const recentlyRequestedMs = 1000 * 60 * 60 * 24 * 14;
+
+  const formatShortDate = (value) => {
+    if (!value) return 'Never';
+    return new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const formatRequestDate = (value) => {
+    if (!value) return 'Never';
+    const requestDate = new Date(value);
+    const diffDays = Math.floor((nowTime - requestDate.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays <= 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return formatShortDate(value);
+  };
+
+  const getPaymentLabel = (targetUser) => {
+    if (targetUser.status === 'active' && targetUser.expires_at) {
+      return `Active until ${formatShortDate(targetUser.expires_at)}`;
+    }
+    if (targetUser.status === 'active') return 'Active';
+    if (targetUser.status === 'suspended') return 'Suspended';
+    if (targetUser.expires_at && new Date(targetUser.expires_at).getTime() <= nowTime) return 'Expired';
+    return 'Awaiting proof';
+  };
+
+  const filterAdminUsers = (items) => items.filter(item => {
+    const matchesSearch = item.email.toLowerCase().includes(adminSearch.toLowerCase());
+    if (!matchesSearch) return false;
+    if (adminFilter === 'all') return true;
+    if (adminFilter === 'active') return item.status === 'active';
+    const requestedRecently = item.last_credit_details_requested_at
+      && nowTime - new Date(item.last_credit_details_requested_at).getTime() < recentlyRequestedMs;
+    return item.status !== 'active' || requestedRecently;
+  });
 
   return (
     <div className="app-container">
@@ -1052,53 +1092,73 @@ export default function App() {
           </div>
 
           <div className="glass-panel admin-panel">
-            <div className="section-title">
-              <span>Teacher Registrations</span>
-              <span style={{ fontSize: '11px', color: 'var(--accent-gold)' }}>EFT Management</span>
+            <div className="admin-toolbar">
+              <div className="section-title">
+                <span>EFT Management</span>
+                <span>{filterAdminUsers(adminUsers).length} shown</span>
+              </div>
+              <div className="admin-filter-tabs" aria-label="Admin filters">
+                {[
+                  ['needs-action', 'Action'],
+                  ['active', 'Active'],
+                  ['all', 'All']
+                ].map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={`admin-filter-tab ${adminFilter === value ? 'active' : ''}`}
+                    onClick={() => setAdminFilter(value)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
             
             <div className="input-group admin-search">
               <input 
                 type="text" 
                 className="input-control" 
-                placeholder="Search teacher by email..."
+                placeholder="Search email..."
                 value={adminSearch}
                 onChange={e => setAdminSearch(e.target.value)}
               />
             </div>
 
-            <div style={{ flex: 1, overflowY: 'auto', maxHeight: '420px', paddingRight: '4px' }}>
-              {adminUsers
-                .filter(u => u.email.toLowerCase().includes(adminSearch.toLowerCase()))
-                .map(targetUser => {
-                  const activationDraft = adminActivationDrafts[targetUser.id] || {
-                    packageId: targetUser.package_id || 'starter',
-                    paidUntil: targetUser.expires_at ? targetUser.expires_at.slice(0, 10) : getDefaultPaidUntil()
-                  };
-                  const activePackage = billingPackages.find(item => item.id === targetUser.package_id);
-                  return (
+            <div className="admin-user-list">
+              {filterAdminUsers(adminUsers).map(targetUser => {
+                const activationDraft = adminActivationDrafts[targetUser.id] || {
+                  packageId: targetUser.package_id || 'starter',
+                  paidUntil: targetUser.expires_at ? targetUser.expires_at.slice(0, 10) : getDefaultPaidUntil(),
+                  adminNote: targetUser.admin_note || ''
+                };
+                const canApprove = ['pending', 'suspended', 'active'].includes(targetUser.status);
+                return (
                   <div key={targetUser.id} className="user-row">
-                    <div className="user-row-header">
-                      <span className="user-email">{targetUser.email}</span>
-                      <span className={`badge badge-${targetUser.status}`}>{targetUser.status}</span>
-                    </div>
-                    <div className="user-profession">Profession: {targetUser.profession}</div>
-                    {targetUser.expires_at && (
-                      <div className="user-subscription">
-                        <span>{activePackage?.name || targetUser.package_id || 'No package'}</span>
-                        <span>Paid through: {targetUser.expires_at ? new Date(targetUser.expires_at).toLocaleDateString() : 'Not set'}</span>
+                    <div className="user-main">
+                      <div className="user-row-header">
+                        <span className="user-email" title={targetUser.email}>{targetUser.email}</span>
+                        <span className={`badge badge-${targetUser.status}`}>{targetUser.status}</span>
                       </div>
-                    )}
-                    {(targetUser.status === 'pending' || targetUser.status === 'suspended' || targetUser.status === 'active') && (
+                      <div className="user-profession">{targetUser.profession}</div>
+                    </div>
+
+                    <div className="payment-summary">
+                      <span>{getPaymentLabel(targetUser)}</span>
+                      <span>Requested: {formatRequestDate(targetUser.last_credit_details_requested_at)}</span>
+                    </div>
+
+                    {canApprove && (
                       <div className="activation-controls">
                         <select
                           className="input-control"
                           value={activationDraft.packageId}
                           onChange={e => handleActivationDraftChange(targetUser.id, 'packageId', e.target.value)}
+                          aria-label={`Package for ${targetUser.email}`}
                         >
                           {billingPackages.map(item => (
                             <option key={item.id} value={item.id}>
-                              {item.name} - R{item.price_zar}/{item.billing_period}
+                              {item.name}
                             </option>
                           ))}
                         </select>
@@ -1107,39 +1167,43 @@ export default function App() {
                           className="input-control"
                           value={activationDraft.paidUntil}
                           onChange={e => handleActivationDraftChange(targetUser.id, 'paidUntil', e.target.value)}
+                          aria-label={`Paid until for ${targetUser.email}`}
+                        />
+                        <input
+                          type="text"
+                          className="input-control admin-note-input"
+                          placeholder="Note"
+                          value={activationDraft.adminNote}
+                          onChange={e => handleActivationDraftChange(targetUser.id, 'adminNote', e.target.value)}
+                          aria-label={`Admin note for ${targetUser.email}`}
                         />
                       </div>
                     )}
                     
-                    <div className="user-actions" style={{ marginTop: '8px' }}>
-                      {(targetUser.status === 'pending' || targetUser.status === 'suspended') && (
+                    <div className="user-actions">
+                      {canApprove && (
                         <button 
                           className="btn-small btn-small-success"
                           onClick={() => handleActivateSubscription(targetUser.id)}
                         >
-                          Approve EFT
+                          {targetUser.status === 'active' ? 'Renew' : 'Approve'}
                         </button>
                       )}
                       {targetUser.status === 'active' && (
-                        <>
-                          <button
-                            className="btn-small btn-small-success"
-                            onClick={() => handleActivateSubscription(targetUser.id)}
-                          >
-                            Renew EFT
-                          </button>
-                          <button 
-                            className="btn-small btn-small-danger"
-                            onClick={() => handleUserStatusUpdate(targetUser.id, 'suspended')}
-                          >
-                            Suspend
-                          </button>
-                        </>
+                        <button 
+                          className="btn-small btn-small-danger"
+                          onClick={() => handleUserStatusUpdate(targetUser.id, 'suspended')}
+                        >
+                          Suspend
+                        </button>
                       )}
                     </div>
                   </div>
                 );
               })}
+              {filterAdminUsers(adminUsers).length === 0 && (
+                <div className="empty-state">No users match this view.</div>
+              )}
             </div>
           </div>
         </div>

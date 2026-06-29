@@ -32,6 +32,8 @@ def init_db():
     _ensure_column(cursor, "users", "activated_at", "TIMESTAMP")
     _ensure_column(cursor, "users", "billing_period_starts_at", "TIMESTAMP")
     _ensure_column(cursor, "users", "expires_at", "TIMESTAMP")
+    _ensure_column(cursor, "users", "last_credit_details_requested_at", "TIMESTAMP")
+    _ensure_column(cursor, "users", "admin_note", "TEXT")
     
     # 2. Create conversions table
     cursor.execute("""
@@ -152,10 +154,17 @@ def list_all_users():
     cursor.execute(
         """
         SELECT id, email, profession, status, created_at, package_id,
-               activated_at, billing_period_starts_at, expires_at
+               activated_at, billing_period_starts_at, expires_at,
+               last_credit_details_requested_at, admin_note
         FROM users
         WHERE profession != 'Admin'
-        ORDER BY created_at DESC
+        ORDER BY
+            CASE
+                WHEN status IN ('pending', 'suspended') THEN 0
+                WHEN last_credit_details_requested_at IS NOT NULL THEN 1
+                ELSE 2
+            END,
+            COALESCE(last_credit_details_requested_at, created_at) DESC
         """
     )
     users = [dict(row) for row in cursor.fetchall()]
@@ -186,6 +195,34 @@ def activate_subscription(user_id: int, package_id: str, expires_at: datetime) -
         WHERE id = ?
         """,
         (package_id, now, now, expires_at.isoformat(), user_id)
+    )
+    conn.commit()
+    rows_changed = cursor.rowcount > 0
+    conn.close()
+    return rows_changed
+
+def record_credit_details_request(user_id: int) -> bool:
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        UPDATE users
+        SET last_credit_details_requested_at = ?
+        WHERE id = ?
+        """,
+        (datetime.utcnow().isoformat(), user_id)
+    )
+    conn.commit()
+    rows_changed = cursor.rowcount > 0
+    conn.close()
+    return rows_changed
+
+def update_admin_note(user_id: int, admin_note: str | None) -> bool:
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE users SET admin_note = ? WHERE id = ?",
+        ((admin_note or "").strip() or None, user_id)
     )
     conn.commit()
     rows_changed = cursor.rowcount > 0

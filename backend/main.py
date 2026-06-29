@@ -74,6 +74,7 @@ class CreditDetailsResponse(BaseModel):
 class ActivateSubscriptionSchema(BaseModel):
     package_id: str
     paid_until: Optional[str] = None
+    admin_note: Optional[str] = None
 
 # Helper: JWT Operations
 def create_access_token(data: dict):
@@ -273,6 +274,8 @@ def request_credit_details(current_user = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Verify your email first.")
 
     email_sent = email_service.send_credit_details(current_user["email"])
+    database.record_credit_details_request(current_user["id"])
+    email_service.notify_admin_credit_details_requested(current_user["email"])
     return {
         "message": "Conversion credit details have been emailed to your registered email address.",
         "email_sent": email_sent,
@@ -428,6 +431,7 @@ def activate_subscription(user_id: int, payload: ActivateSubscriptionSchema, cur
     success = database.activate_subscription(user_id, package["id"], paid_until)
     if not success:
         raise HTTPException(status_code=404, detail="User not found.")
+    database.update_admin_note(user_id, payload.admin_note)
 
     return {
         "message": f"User activated on {package['name']} until {paid_until.date().isoformat()}."

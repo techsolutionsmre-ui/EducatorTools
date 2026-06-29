@@ -84,7 +84,13 @@ def _email_shell(title: str, preheader: str, content: str):
 </html>"""
 
 
-def send_email(to_email: str, subject: str, body: str, html_body: str | None = None) -> bool:
+def send_email(
+    to_email: str,
+    subject: str,
+    body: str,
+    html_body: str | None = None,
+    reply_to: str | None = None,
+) -> bool:
     if not config.SMTP_HOST or not config.SMTP_USER or not config.SMTP_PASSWORD:
         print("Email not sent: SMTP configuration is incomplete.")
         return False
@@ -93,6 +99,8 @@ def send_email(to_email: str, subject: str, body: str, html_body: str | None = N
     message["Subject"] = subject
     message["From"] = _sender_header()
     message["To"] = to_email
+    if reply_to:
+        message["Reply-To"] = reply_to
     message.set_content(body)
     if html_body:
         message.add_alternative(html_body, subtype="html")
@@ -229,7 +237,35 @@ After sending proof of payment:
         <p style="margin:0;font-size:13px;line-height:1.5;color:#64748b;">Need help? Reply to this email and we will assist.</p>
         """,
     )
-    return send_email(to_email, "EducatorTools conversion credit details", body, html_body)
+    return send_email(
+        to_email,
+        "EducatorTools conversion credit details",
+        body,
+        html_body,
+        reply_to=config.CONTACT_EMAIL or config.ADMIN_EMAIL,
+    )
+
+
+def notify_admin_credit_details_requested(user_email: str) -> bool:
+    body = f"""A user requested EducatorTools conversion credit details.
+
+Email: {user_email}
+
+They were instructed to reply to the payment-details email with proof of payment.
+Approve their EFT package from the admin dashboard only after the proof of payment arrives in this inbox.
+"""
+    html_body = _email_shell(
+        "Credit details requested",
+        "A user requested EFT payment details.",
+        f"""
+        <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#334155;">A user requested EFT conversion credit details.</p>
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;font-size:14px;line-height:1.8;color:#334155;">
+          <tr><td style="font-weight:700;">Email</td><td>{user_email}</td></tr>
+        </table>
+        <p style="margin:16px 0 0 0;font-size:14px;line-height:1.6;color:#64748b;">They were instructed to reply to the payment-details email with proof of payment. Approve their EFT package from the admin dashboard only after that proof arrives.</p>
+        """,
+    )
+    return send_email(config.ADMIN_EMAIL, "EducatorTools credit details requested", body, html_body)
 
 
 def notify_admin_new_registration(user_email: str, profession: str) -> bool:
