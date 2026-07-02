@@ -3,9 +3,10 @@ import shutil
 import tempfile
 import asyncio
 import secrets
+import base64
 from datetime import datetime, timedelta
 from typing import Optional
-from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, BackgroundTasks
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, BackgroundTasks
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -293,6 +294,99 @@ def cleanup_files(paths: list):
         except Exception as e:
             print(f"Error during file cleanup: {str(e)}")
 
+def get_pdf_tool_limit_bytes():
+    return config.MAX_PDF_TOOL_FILE_MB * 1024 * 1024
+
+def get_pdf_merge_limit_bytes():
+    return config.MAX_PDF_MERGE_TOTAL_MB * 1024 * 1024
+
+def validate_pdf_upload(file: UploadFile):
+    if not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are supported.")
+
+def save_upload_to_temp(file: UploadFile, prefix: str, max_bytes: int):
+    validate_pdf_upload(file)
+    temp_path = os.path.join(tempfile.gettempdir(), f"{prefix}_{os.urandom(8).hex()}.pdf")
+    total = 0
+    try:
+        with open(temp_path, "wb") as output:
+            while True:
+                chunk = file.file.read(1024 * 1024)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > max_bytes:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"PDF is too large. Limit is {max_bytes // (1024 * 1024)}MB."
+                    )
+                output.write(chunk)
+        if total == 0:
+            raise HTTPException(status_code=400, detail="Uploaded PDF is empty.")
+        return temp_path, total
+    except Exception:
+        cleanup_files([temp_path])
+        raise
+
+def open_valid_pdf(path: str):
+    try:
+        doc = fitz.open(path)
+        if doc.is_encrypted:
+            doc.close()
+            raise HTTPException(status_code=400, detail="Password-protected PDFs are not supported.")
+        if len(doc) == 0:
+            doc.close()
+            raise HTTPException(status_code=400, detail="PDF has no pages.")
+        if len(doc) > config.MAX_PDF_TOOL_PAGES:
+            doc.close()
+            raise HTTPException(
+                status_code=413,
+                detail=f"PDF has too many pages. Limit is {config.MAX_PDF_TOOL_PAGES} pages."
+            )
+        return doc
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid PDF file structure.")
+
+def safe_pdf_download_name(filename: str, suffix: str):
+    base = os.path.splitext(os.path.basename(filename))[0].strip() or "document"
+    return f"{base}_{suffix}.pdf"
+
+def parse_page_selection(selection: str, page_count: int):
+    pages = set()
+    for part in selection.replace(" ", "").split(","):
+        if not part:
+            continue
+        if "-" in part:
+            start_text, end_text = part.split("-", 1)
+            if not start_text.isdigit() or not end_text.isdigit():
+                raise HTTPException(status_code=400, detail="Use page numbers like 1,3-5.")
+            start = int(start_text)
+            end = int(end_text)
+            if start > end:
+                raise HTTPException(status_code=400, detail="Page ranges must go from low to high.")
+            pages.update(range(start, end + 1))
+        else:
+            if not part.isdigit():
+                raise HTTPException(status_code=400, detail="Use page numbers like 1,3-5.")
+            pages.add(int(part))
+    if not pages:
+        raise HTTPException(status_code=400, detail="Choose at least one page.")
+    if min(pages) < 1 or max(pages) > page_count:
+        raise HTTPException(status_code=400, detail=f"Pages must be between 1 and {page_count}.")
+    return sorted(page - 1 for page in pages)
+
+def create_zip_response(background_tasks: BackgroundTasks, files: list[tuple[str, str]], output_name: str):
+    zip_path = os.path.join(tempfile.gettempdir(), f"pdf_pages_{os.urandom(8).hex()}.zip")
+    import zipfile
+    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zip_file:
+        for source_path, archive_name in files:
+            zip_file.write(source_path, archive_name)
+    cleanup_targets = [zip_path] + [path for path, _ in files]
+    background_tasks.add_task(cleanup_files, cleanup_targets)
+    return FileResponse(path=zip_path, filename=output_name, media_type="application/zip")
+
 @app.post("/api/convert")
 async def convert_pdf(
     background_tasks: BackgroundTasks,
@@ -402,6 +496,131 @@ async def convert_pdf(
             # Clean up temp files immediately on error
             cleanup_files([temp_pdf, temp_docx])
             raise HTTPException(status_code=500, detail=f"Conversion failed: {str(e)}")
+
+@app.post("/api/pdf/preview")
+async def preview_pdf(
+    file: UploadFile = File(...),
+    current_user = Depends(get_active_user)
+):
+    temp_pdf = None
+    try:
+        temp_pdf, file_size = save_upload_to_temp(file, "preview", get_pdf_tool_limit_bytes())
+        doc = open_valid_pdf(temp_pdf)
+        page = doc[0]
+        pix = page.get_pixmap(matrix=fitz.Matrix(0.55, 0.55), alpha=False)
+        image_base64 = base64.b64encode(pix.tobytes("png")).decode("ascii")
+        metadata = {
+            "filename": file.filename,
+            "file_size": file_size,
+            "page_count": len(doc),
+            "first_page_width": round(page.rect.width),
+            "first_page_height": round(page.rect.height),
+            "preview_image": f"data:image/png;base64,{image_base64}",
+        }
+        doc.close()
+        return metadata
+    finally:
+        cleanup_files([temp_pdf] if temp_pdf else [])
+
+@app.post("/api/pdf/split")
+async def split_pdf(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    current_user = Depends(get_active_user)
+):
+    temp_pdf = None
+    output_files = []
+    try:
+        temp_pdf, _ = save_upload_to_temp(file, "split", get_pdf_tool_limit_bytes())
+        doc = open_valid_pdf(temp_pdf)
+        base_name = os.path.splitext(os.path.basename(file.filename))[0] or "document"
+        for page_index in range(len(doc)):
+            out_doc = fitz.open()
+            out_doc.insert_pdf(doc, from_page=page_index, to_page=page_index)
+            out_path = os.path.join(tempfile.gettempdir(), f"split_{os.urandom(8).hex()}.pdf")
+            out_doc.save(out_path)
+            out_doc.close()
+            output_files.append((out_path, f"{base_name}_page_{page_index + 1}.pdf"))
+        doc.close()
+        cleanup_files([temp_pdf])
+        return create_zip_response(background_tasks, output_files, safe_pdf_download_name(file.filename, "split_pages").replace(".pdf", ".zip"))
+    except Exception:
+        cleanup_files([temp_pdf] + [path for path, _ in output_files if path])
+        raise
+
+@app.post("/api/pdf/extract")
+async def extract_pdf_pages(
+    background_tasks: BackgroundTasks,
+    pages: str = Form(...),
+    file: UploadFile = File(...),
+    current_user = Depends(get_active_user)
+):
+    temp_pdf = None
+    output_pdf = None
+    try:
+        temp_pdf, _ = save_upload_to_temp(file, "extract", get_pdf_tool_limit_bytes())
+        doc = open_valid_pdf(temp_pdf)
+        selected_pages = parse_page_selection(pages, len(doc))
+        out_doc = fitz.open()
+        for page_index in selected_pages:
+            out_doc.insert_pdf(doc, from_page=page_index, to_page=page_index)
+        output_pdf = os.path.join(tempfile.gettempdir(), f"extract_{os.urandom(8).hex()}.pdf")
+        out_doc.save(output_pdf)
+        out_doc.close()
+        doc.close()
+        cleanup_files([temp_pdf])
+        background_tasks.add_task(cleanup_files, [output_pdf])
+        return FileResponse(
+            path=output_pdf,
+            filename=safe_pdf_download_name(file.filename, "selected_pages"),
+            media_type="application/pdf"
+        )
+    except Exception:
+        cleanup_files([temp_pdf, output_pdf])
+        raise
+
+@app.post("/api/pdf/merge")
+async def merge_pdfs(
+    background_tasks: BackgroundTasks,
+    files: list[UploadFile] = File(...),
+    current_user = Depends(get_active_user)
+):
+    if len(files) < 2:
+        raise HTTPException(status_code=400, detail="Upload at least two PDFs to merge.")
+    if len(files) > config.MAX_PDF_MERGE_FILES:
+        raise HTTPException(status_code=413, detail=f"Merge is limited to {config.MAX_PDF_MERGE_FILES} PDFs.")
+
+    temp_files = []
+    output_pdf = None
+    total_size = 0
+    total_pages = 0
+    merged = fitz.open()
+    try:
+        for file in files:
+            remaining_bytes = get_pdf_merge_limit_bytes() - total_size
+            if remaining_bytes <= 0:
+                raise HTTPException(status_code=413, detail=f"Total merge size limit is {config.MAX_PDF_MERGE_TOTAL_MB}MB.")
+            temp_pdf, file_size = save_upload_to_temp(file, "merge", remaining_bytes)
+            temp_files.append(temp_pdf)
+            total_size += file_size
+            doc = open_valid_pdf(temp_pdf)
+            total_pages += len(doc)
+            if total_pages > config.MAX_PDF_TOOL_PAGES:
+                doc.close()
+                raise HTTPException(status_code=413, detail=f"Merged PDF is limited to {config.MAX_PDF_TOOL_PAGES} pages.")
+            merged.insert_pdf(doc)
+            doc.close()
+
+        output_pdf = os.path.join(tempfile.gettempdir(), f"merged_{os.urandom(8).hex()}.pdf")
+        merged.save(output_pdf)
+        merged.close()
+        cleanup_files(temp_files)
+        background_tasks.add_task(cleanup_files, [output_pdf])
+        return FileResponse(path=output_pdf, filename="merged_document.pdf", media_type="application/pdf")
+    except Exception:
+        merged.close()
+        cleanup_files(temp_files + [output_pdf])
+        raise
 
 @app.get("/api/history")
 def get_history(current_user = Depends(get_current_user)):

@@ -11,6 +11,9 @@ const CONTACT_EMAIL = "techsolutions.mre@gmail.com";
 
 // API Base URL (relative to root for Vercel/Docker deployment)
 const API_URL = '/api';
+const PDF_TOOL_FILE_LIMIT_MB = 25;
+const PDF_MERGE_TOTAL_LIMIT_MB = 50;
+const PDF_MERGE_FILE_LIMIT = 5;
 const FALLBACK_PACKAGES = [
   { id: 'starter', name: 'Conversion Starter', price_zar: 29, billing_period: 'monthly', monthly_pages: 29 },
   { id: 'teacher-plus', name: 'Conversion Plus', price_zar: 49, billing_period: 'monthly', monthly_pages: 100 }
@@ -40,6 +43,7 @@ export default function App() {
       window.URL.revokeObjectURL(downloadUrl);
     }
     setFile(null);
+    setPdfPreview(null);
     setDownloadUrl(null);
     setDownloadFilename('');
     setConversionStatus(null);
@@ -56,9 +60,17 @@ export default function App() {
   
   // Upload and Conversion states
   const [file, setFile] = useState(null);
+  const [pdfPreview, setPdfPreview] = useState(null);
   const [dragActive, setDragActive] = useState(false);
   const [conversionStatus, setConversionStatus] = useState(null); // 'uploading', 'converting', 'success', 'failed'
   const [progressMsg, setProgressMsg] = useState('');
+  const [pdfTool, setPdfTool] = useState('split');
+  const [toolFiles, setToolFiles] = useState([]);
+  const [toolPreview, setToolPreview] = useState(null);
+  const [extractPages, setExtractPages] = useState('');
+  const [toolStatus, setToolStatus] = useState('idle');
+  const [toolDownloadUrl, setToolDownloadUrl] = useState(null);
+  const [toolDownloadFilename, setToolDownloadFilename] = useState('');
   
   // Status states
   const [error, setError] = useState('');
@@ -338,9 +350,26 @@ export default function App() {
     setUser(null);
     setHistory([]);
     resetUploadState();
+    resetPdfTools();
     setView('landing');
     setError('');
     setSuccess('');
+  };
+
+  const clearToolDownload = () => {
+    if (toolDownloadUrl && toolDownloadUrl !== '#mock-pdf-tool') {
+      window.URL.revokeObjectURL(toolDownloadUrl);
+    }
+    setToolDownloadUrl(null);
+    setToolDownloadFilename('');
+  };
+
+  const resetPdfTools = () => {
+    clearToolDownload();
+    setToolFiles([]);
+    setToolPreview(null);
+    setExtractPages('');
+    setToolStatus('idle');
   };
 
   // Admin Actions
@@ -433,6 +462,7 @@ export default function App() {
       const uploadedFile = e.dataTransfer.files[0];
       if (uploadedFile.type === "application/pdf") {
         setFile(uploadedFile);
+        fetchPdfPreview(uploadedFile, setPdfPreview);
         setError('');
       } else {
         setError("Only PDF files are allowed!");
@@ -445,10 +475,107 @@ export default function App() {
       const uploadedFile = e.target.files[0];
       if (uploadedFile.type === "application/pdf") {
         setFile(uploadedFile);
+        fetchPdfPreview(uploadedFile, setPdfPreview);
         setError('');
       } else {
         setError("Only PDF files are allowed!");
       }
+    }
+  };
+
+  const fetchPdfPreview = async (targetFile, setter) => {
+    if (!targetFile || !token) return;
+    setter(null);
+    const formData = new FormData();
+    formData.append('file', targetFile);
+    try {
+      const res = await fetch(`${API_URL}/pdf/preview`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+      const data = await res.json();
+      if (res.status === 200) {
+        setter(data);
+      }
+    } catch {
+      setter(null);
+    }
+  };
+
+  const handleToolFilesChange = (e) => {
+    const selectedFiles = Array.from(e.target.files || []).filter(item => item.type === 'application/pdf');
+    clearToolDownload();
+    setToolStatus('idle');
+    setToolFiles(selectedFiles);
+    setToolPreview(null);
+    setError('');
+
+    if (selectedFiles.length && pdfTool !== 'merge') {
+      fetchPdfPreview(selectedFiles[0], setToolPreview);
+    }
+    e.target.value = '';
+  };
+
+  const runPdfTool = async () => {
+    if (!toolFiles.length) {
+      setError('Choose a PDF first.');
+      return;
+    }
+    if (pdfTool === 'merge' && toolFiles.length < 2) {
+      setError('Choose at least two PDFs to merge.');
+      return;
+    }
+    if (pdfTool === 'extract' && !extractPages.trim()) {
+      setError('Enter pages to extract, for example 1,3-5.');
+      return;
+    }
+
+    clearToolDownload();
+    setError('');
+    setSuccess('');
+    setToolStatus('working');
+
+    const formData = new FormData();
+    const endpoint = pdfTool === 'merge' ? 'merge' : pdfTool === 'extract' ? 'extract' : 'split';
+
+    if (pdfTool === 'merge') {
+      toolFiles.forEach(item => formData.append('files', item));
+    } else {
+      formData.append('file', toolFiles[0]);
+      if (pdfTool === 'extract') {
+        formData.append('pages', extractPages.trim());
+      }
+    }
+
+    try {
+      const res = await fetch(`${API_URL}/pdf/${endpoint}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+
+      if (res.status === 200) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const fallbackName = pdfTool === 'split'
+          ? 'split_pages.zip'
+          : pdfTool === 'merge'
+            ? 'merged_document.pdf'
+            : 'selected_pages.pdf';
+        const disposition = res.headers.get('content-disposition') || '';
+        const match = disposition.match(/filename="?([^"]+)"?/i);
+        setToolDownloadUrl(url);
+        setToolDownloadFilename(match?.[1] || fallbackName);
+        setToolStatus('success');
+      } else {
+        const data = await res.json();
+        setError(data.detail || 'PDF tool failed.');
+        setToolStatus('idle');
+      }
+    } catch {
+      setError('Could not reach the PDF tool service.');
+      setToolStatus('idle');
     }
   };
 
@@ -664,6 +791,19 @@ export default function App() {
                 <h4>Private & Secure</h4>
                 <p>We do not store your PDFs. Files are processed locally and deleted immediately after download.</p>
               </div>
+            </div>
+          </div>
+
+          <div className="landing-tools-strip">
+            <div className="landing-tools-copy">
+              <h3>PDF tools included</h3>
+              <p>Preview, split, merge, and extract pages before converting.</p>
+            </div>
+            <div className="landing-tools-list" aria-label="Included PDF tools">
+              <span>Preview</span>
+              <span>Split</span>
+              <span>Merge</span>
+              <span>Extract</span>
             </div>
           </div>
 
@@ -1034,14 +1174,127 @@ export default function App() {
                             <div style={{ fontSize: '14px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</div>
                             <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{formatBytes(file.size)}</div>
                           </div>
-                          <button className="btn-icon-only" style={{ borderRadius: '4px' }} onClick={() => setFile(null)}>✕</button>
+                          <button className="btn-icon-only" style={{ borderRadius: '4px' }} onClick={() => { setFile(null); setPdfPreview(null); }}>✕</button>
                         </div>
+                        {pdfPreview && (
+                          <div className="pdf-preview-strip">
+                            <img src={pdfPreview.preview_image} alt="First page preview" className="pdf-preview-image" />
+                            <div className="pdf-preview-meta">
+                              <span>{pdfPreview.page_count} page{pdfPreview.page_count !== 1 ? 's' : ''}</span>
+                              <span>{formatBytes(pdfPreview.file_size)}</span>
+                            </div>
+                          </div>
+                        )}
                         <button className="btn btn-primary" onClick={startConversion}>
                           Convert to Editable Word
                         </button>
                       </div>
                     )}
                   </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* PDF TOOLS */}
+          <div className="glass-panel pdf-tools-panel">
+            <div className="section-title">
+              <span>PDF Tools</span>
+              <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Clean & quick</span>
+            </div>
+
+            {(user.status !== 'active' && user.status !== 'trial') ? (
+              <div className="empty-state">PDF tools unlock with your converter.</div>
+            ) : (
+              <div className="pdf-tools-body">
+                <div className="tool-tabs" aria-label="PDF tool selector">
+                  {[
+                    { id: 'split', label: 'Split' },
+                    { id: 'merge', label: 'Merge' },
+                    { id: 'extract', label: 'Extract' }
+                  ].map(item => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={`tool-tab ${pdfTool === item.id ? 'active' : ''}`}
+                      onClick={() => {
+                        setPdfTool(item.id);
+                        resetPdfTools();
+                      }}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="tool-upload-row">
+                  <input
+                    type="file"
+                    id="pdf-tool-upload"
+                    accept=".pdf"
+                    multiple={pdfTool === 'merge'}
+                    className="input-control"
+                    style={{ display: 'none' }}
+                    onChange={handleToolFilesChange}
+                  />
+                  <label htmlFor="pdf-tool-upload" className="tool-file-button">
+                    Choose PDF{pdfTool === 'merge' ? 's' : ''}
+                  </label>
+                  <span className="tool-limit-note">
+                    {pdfTool === 'merge'
+                      ? `Max ${PDF_MERGE_FILE_LIMIT} files / ${PDF_MERGE_TOTAL_LIMIT_MB}MB total`
+                      : `Max ${PDF_TOOL_FILE_LIMIT_MB}MB`}
+                  </span>
+                </div>
+
+                {toolFiles.length > 0 && (
+                  <div className="tool-file-summary">
+                    <div className="tool-file-list">
+                      {toolFiles.map(item => (
+                        <span key={`${item.name}-${item.size}`} title={item.name}>
+                          {item.name}
+                        </span>
+                      ))}
+                    </div>
+                    {toolPreview && (
+                      <div className="pdf-preview-strip compact">
+                        <img src={toolPreview.preview_image} alt="First page preview" className="pdf-preview-image" />
+                        <div className="pdf-preview-meta">
+                          <span>{toolPreview.page_count} page{toolPreview.page_count !== 1 ? 's' : ''}</span>
+                          <span>{formatBytes(toolPreview.file_size)}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {pdfTool === 'extract' && (
+                  <div className="input-group" style={{ marginBottom: 0 }}>
+                    <label className="input-label">Pages</label>
+                    <input
+                      type="text"
+                      className="input-control"
+                      placeholder="1,3-5"
+                      value={extractPages}
+                      onChange={e => setExtractPages(e.target.value)}
+                    />
+                  </div>
+                )}
+
+                {toolDownloadUrl ? (
+                  <a href={toolDownloadUrl} download={toolDownloadFilename} className="btn btn-success" style={{ textDecoration: 'none' }}>
+                    Download {toolDownloadFilename}
+                  </a>
+                ) : (
+                  <button className="btn btn-primary" onClick={runPdfTool} disabled={toolStatus === 'working'}>
+                    {toolStatus === 'working'
+                      ? 'Working...'
+                      : pdfTool === 'split'
+                        ? 'Split into Pages'
+                        : pdfTool === 'merge'
+                          ? 'Merge PDFs'
+                          : 'Extract Pages'}
+                  </button>
                 )}
               </div>
             )}

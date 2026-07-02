@@ -50,5 +50,11 @@ DB_PATH = os.path.join(DB_DIR, "educator_tools.db")
 MAX_CONCURRENT_CONVERSIONS = int(os.getenv("MAX_CONCURRENT_CONVERSIONS", "1"))  # Process one PDF at a time
 MAX_CPU_THREADS = int(os.getenv("MAX_CPU_THREADS", "1"))             # Limit pdf2docx to a single thread/core
 
+# Lightweight PDF tools limits
+MAX_PDF_TOOL_FILE_MB = int(os.getenv("MAX_PDF_TOOL_FILE_MB", "25"))
+MAX_PDF_MERGE_TOTAL_MB = int(os.getenv("MAX_PDF_MERGE_TOTAL_MB", "50"))
+MAX_PDF_MERGE_FILES = int(os.getenv("MAX_PDF_MERGE_FILES", "5"))
+MAX_PDF_TOOL_PAGES = int(os.getenv("MAX_PDF_TOOL_PAGES", "80"))
+
 # Ensure database directory exists
 os.makedirs(DB_DIR, exist_ok=True)
