@@ -377,6 +377,60 @@ def parse_page_selection(selection: str, page_count: int):
         raise HTTPException(status_code=400, detail=f"Pages must be between 1 and {page_count}.")
     return sorted(page - 1 for page in pages)
 
+def parse_page_ranges(selection: str, page_count: int):
+    ranges = []
+    for part in selection.replace(" ", "").split(","):
+        if not part:
+            continue
+        if "-" in part:
+            start_text, end_text = part.split("-", 1)
+        else:
+            start_text = end_text = part
+        if not start_text.isdigit() or not end_text.isdigit():
+            raise HTTPException(status_code=400, detail="Use ranges like 1-3,4-6.")
+        start = int(start_text)
+        end = int(end_text)
+        if start > end:
+            raise HTTPException(status_code=400, detail="Page ranges must go from low to high.")
+        if start < 1 or end > page_count:
+            raise HTTPException(status_code=400, detail=f"Ranges must be between 1 and {page_count}.")
+        ranges.append((start - 1, end - 1))
+    if not ranges:
+        raise HTTPException(status_code=400, detail="Enter at least one page range.")
+    return ranges
+
+def parse_split_after(selection: str, page_count: int):
+    points = []
+    for part in selection.replace(" ", "").split(","):
+        if not part:
+            continue
+        if not part.isdigit():
+            raise HTTPException(status_code=400, detail="Use page numbers like 3,6,10.")
+        point = int(part)
+        if point < 1 or point >= page_count:
+            raise HTTPException(status_code=400, detail=f"Split points must be between 1 and {page_count - 1}.")
+        points.append(point)
+    points = sorted(set(points))
+    if not points:
+        raise HTTPException(status_code=400, detail="Enter at least one split point.")
+
+    ranges = []
+    start = 0
+    for point in points:
+        ranges.append((start, point - 1))
+        start = point
+    ranges.append((start, page_count - 1))
+    return ranges
+
+def build_split_ranges(mode: str, instruction: str | None, page_count: int):
+    if mode == "every_page":
+        return [(page_index, page_index) for page_index in range(page_count)]
+    if mode == "ranges":
+        return parse_page_ranges(instruction or "", page_count)
+    if mode == "after":
+        return parse_split_after(instruction or "", page_count)
+    raise HTTPException(status_code=400, detail="Choose a valid split mode.")
+
 def create_zip_response(background_tasks: BackgroundTasks, files: list[tuple[str, str]], output_name: str):
     zip_path = os.path.join(tempfile.gettempdir(), f"pdf_pages_{os.urandom(8).hex()}.zip")
     import zipfile
@@ -525,6 +579,8 @@ async def preview_pdf(
 @app.post("/api/pdf/split")
 async def split_pdf(
     background_tasks: BackgroundTasks,
+    split_mode: str = Form("every_page"),
+    split_pages: str = Form(""),
     file: UploadFile = File(...),
     current_user = Depends(get_active_user)
 ):
@@ -534,13 +590,18 @@ async def split_pdf(
         temp_pdf, _ = save_upload_to_temp(file, "split", get_pdf_tool_limit_bytes())
         doc = open_valid_pdf(temp_pdf)
         base_name = os.path.splitext(os.path.basename(file.filename))[0] or "document"
-        for page_index in range(len(doc)):
+        split_ranges = build_split_ranges(split_mode, split_pages, len(doc))
+        for segment_index, (start_page, end_page) in enumerate(split_ranges, start=1):
             out_doc = fitz.open()
-            out_doc.insert_pdf(doc, from_page=page_index, to_page=page_index)
+            out_doc.insert_pdf(doc, from_page=start_page, to_page=end_page)
             out_path = os.path.join(tempfile.gettempdir(), f"split_{os.urandom(8).hex()}.pdf")
             out_doc.save(out_path)
             out_doc.close()
-            output_files.append((out_path, f"{base_name}_page_{page_index + 1}.pdf"))
+            if start_page == end_page:
+                archive_name = f"{base_name}_page_{start_page + 1}.pdf"
+            else:
+                archive_name = f"{base_name}_part_{segment_index}_pages_{start_page + 1}-{end_page + 1}.pdf"
+            output_files.append((out_path, archive_name))
         doc.close()
         cleanup_files([temp_pdf])
         return create_zip_response(background_tasks, output_files, safe_pdf_download_name(file.filename, "split_pages").replace(".pdf", ".zip"))

@@ -300,6 +300,11 @@ body {
   margin-bottom: 0;
 }
 
+.pdf-preview-strip.tool-preview-strip {
+  grid-template-columns: 84px minmax(0, 1fr);
+  margin-bottom: 0;
+}
+
 .pdf-preview-image {
   width: 100%;
   aspect-ratio: 3 / 4;
@@ -316,6 +321,12 @@ body {
   gap: 8px;
   font-size: 12px;
   color: var(--text-secondary);
+}
+
+.pdf-preview-meta strong {
+  flex-basis: 100%;
+  color: var(--text-primary);
+  font-size: 13px;
 }
 
 .pdf-preview-meta span {
@@ -459,6 +470,17 @@ body {
 .pdf-tools-body {
   display: grid;
   gap: 12px;
+}
+
+.split-options {
+  display: grid;
+  gap: 10px;
+}
+
+.tool-helper {
+  margin-top: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
 }
 
 .tool-tabs {

@@ -73,6 +73,8 @@ export default function App() {
   const [pdfTool, setPdfTool] = useState('split');
   const [toolFiles, setToolFiles] = useState([]);
   const [toolPreview, setToolPreview] = useState(null);
+  const [splitMode, setSplitMode] = useState('every_page');
+  const [splitPages, setSplitPages] = useState('');
   const [extractPages, setExtractPages] = useState('');
   const [toolStatus, setToolStatus] = useState('idle');
   const [toolDownloadUrl, setToolDownloadUrl] = useState(null);
@@ -374,6 +376,8 @@ export default function App() {
     clearToolDownload();
     setToolFiles([]);
     setToolPreview(null);
+    setSplitMode('every_page');
+    setSplitPages('');
     setExtractPages('');
     setToolStatus('idle');
   };
@@ -532,6 +536,12 @@ export default function App() {
       setError('Choose at least two PDFs to merge.');
       return;
     }
+    if (pdfTool === 'split' && splitMode !== 'every_page' && !splitPages.trim()) {
+      setError(splitMode === 'ranges'
+        ? 'Enter ranges to split into, for example 1-3,4-6.'
+        : 'Enter pages to split after, for example 3,6,10.');
+      return;
+    }
     if (pdfTool === 'extract' && !extractPages.trim()) {
       setError('Enter pages to extract, for example 1,3-5.');
       return;
@@ -549,6 +559,10 @@ export default function App() {
       toolFiles.forEach(item => formData.append('files', item));
     } else {
       formData.append('file', toolFiles[0]);
+      if (pdfTool === 'split') {
+        formData.append('split_mode', splitMode);
+        formData.append('split_pages', splitPages.trim());
+      }
       if (pdfTool === 'extract') {
         formData.append('pages', extractPages.trim());
       }
@@ -1321,12 +1335,61 @@ export default function App() {
                           ))}
                         </div>
                         {toolPreview && (
-                          <div className="pdf-preview-strip compact">
+                          <div className="pdf-preview-strip tool-preview-strip">
                             <img src={toolPreview.preview_image} alt="First page preview" className="pdf-preview-image" />
                             <div className="pdf-preview-meta">
+                              <strong>Preview</strong>
                               <span>{toolPreview.page_count} page{toolPreview.page_count !== 1 ? 's' : ''}</span>
                               <span>{formatBytes(toolPreview.file_size)}</span>
                             </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {pdfTool === 'split' && (
+                      <div className="split-options">
+                        <div className="tool-tabs" aria-label="Split mode selector">
+                          {[
+                            { id: 'every_page', label: 'Every page' },
+                            { id: 'ranges', label: 'Page ranges' },
+                            { id: 'after', label: 'Split after' }
+                          ].map(item => (
+                            <button
+                              key={item.id}
+                              type="button"
+                              className={`tool-tab ${splitMode === item.id ? 'active' : ''}`}
+                              onClick={() => {
+                                setSplitMode(item.id);
+                                setSplitPages('');
+                                clearToolDownload();
+                              }}
+                            >
+                              {item.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        {splitMode !== 'every_page' && (
+                          <div className="input-group" style={{ marginBottom: 0 }}>
+                            <label className="input-label">
+                              {splitMode === 'ranges' ? 'Split into ranges' : 'Split after pages'}
+                            </label>
+                            <input
+                              type="text"
+                              className="input-control"
+                              placeholder={splitMode === 'ranges' ? '1-3,4-6,7-10' : '3,6,10'}
+                              value={splitPages}
+                              onChange={e => {
+                                setSplitPages(e.target.value);
+                                clearToolDownload();
+                              }}
+                            />
+                            <p className="tool-helper">
+                              {splitMode === 'ranges'
+                                ? 'Each range becomes a separate PDF in the ZIP.'
+                                : 'A new PDF starts after each page number you enter.'}
+                            </p>
                           </div>
                         )}
                       </div>
@@ -1354,7 +1417,9 @@ export default function App() {
                         {toolStatus === 'working'
                           ? 'Working...'
                           : pdfTool === 'split'
-                            ? 'Split into Pages'
+                            ? splitMode === 'every_page'
+                              ? 'Split Every Page'
+                              : 'Split PDF'
                             : pdfTool === 'merge'
                               ? 'Merge PDFs'
                               : 'Extract Pages'}
