@@ -69,6 +69,7 @@ export default function App() {
   const [dragActive, setDragActive] = useState(false);
   const [conversionStatus, setConversionStatus] = useState(null); // 'uploading', 'converting', 'success', 'failed'
   const [progressMsg, setProgressMsg] = useState('');
+  const [activeTool, setActiveTool] = useState('convert');
   const [pdfTool, setPdfTool] = useState('split');
   const [toolFiles, setToolFiles] = useState([]);
   const [toolPreview, setToolPreview] = useState(null);
@@ -801,7 +802,7 @@ export default function App() {
 
           <div className="landing-tools-section">
             <div className="landing-tools-header">
-              <h3>PDF tools for teachers</h3>
+              <h3>MORE PDF tools</h3>
               <p>Convert, preview, split, merge, and extract exam papers from one clean workspace.</p>
             </div>
             <div className="landing-tool-grid">
@@ -1135,212 +1136,231 @@ export default function App() {
             </div>
           )}
 
-          {/* CONVERTER CARD */}
-          <div className="glass-panel converter-panel">
-            {conversionStatus === 'uploading' || conversionStatus === 'converting' ? (
-              <div className="progress-container">
-                <div className="spinner"></div>
-                <div className="progress-title">Processing PDF</div>
-                <div className="progress-subtitle">{progressMsg}</div>
-              </div>
-            ) : conversionStatus === 'success' ? (
-              <div className="progress-container" style={{ gap: '16px' }}>
-                <div style={{ fontSize: '48px', color: 'var(--accent-green)' }}>✓</div>
-                <div className="progress-title">Conversion Successful!</div>
-                <div style={{ fontSize: '13px', background: '#F1F5F9', border: '1px solid #E2E8F0', padding: '12px', borderRadius: '6px', width: '100%', wordBreak: 'break-all', fontWeight: 600 }}>
-                  {downloadFilename}
-                </div>
-                
-                {downloadUrl === '#mock-download' ? (
-                  <button className="btn btn-success" onClick={() => alert("Mock File Downloaded successfully!")}>
-                    Download Word Document
-                  </button>
-                ) : (
-                  <a href={downloadUrl} download={downloadFilename} className="btn btn-success" style={{ textDecoration: 'none' }}>
-                    Download Word Document
-                  </a>
-                )}
-                
-                <button className="btn" style={{ background: '#E2E8F0', color: 'var(--text-primary)', marginTop: '8px' }} onClick={resetUploadState}>
-                  Convert Another File
-                </button>
-              </div>
-            ) : (
+          {/* MAIN PDF WORKSPACE */}
+          <div className="glass-panel workspace-panel">
+            <div className="workspace-header">
               <div>
-                <div className="section-title">
-                  <span>Upload Test Paper</span>
-                  <span style={{ fontSize: '11px', color: 'var(--accent-blue)' }}>PDF to DOCX</span>
-                </div>
-                
-                {(user.status !== 'active' && user.status !== 'trial') ? (
-                  <div style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--text-muted)' }}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5" style={{ margin: '0 auto 12px auto', opacity: 0.5 }}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                    <p style={{ fontSize: '14px', fontWeight: 600 }}>Converter Locked</p>
-                    <p style={{ fontSize: '12px', marginTop: '4px' }}>
-                      {user.status === 'pending' 
-                        ? "Free trial limit reached or pending subscription. Please contact support." 
-                        : "Your account is locked. Please contact support."}
-                    </p>
+                <h3>PDF workspace</h3>
+                <p>Choose a tool, upload your file, and keep working from one place.</p>
+              </div>
+              <span>PDF to Word featured</span>
+            </div>
+
+            <div className="workspace-tool-grid" aria-label="PDF tool selector">
+              {[
+                { id: 'convert', label: 'PDF to Word', meta: 'Editable DOCX', featured: true },
+                { id: 'split', label: 'Split', meta: 'Separate pages' },
+                { id: 'merge', label: 'Merge', meta: 'Combine PDFs' },
+                { id: 'extract', label: 'Extract', meta: 'Selected pages' }
+              ].map(item => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`workspace-tool ${item.featured ? 'featured' : ''} ${activeTool === item.id ? 'active' : ''}`}
+                  onClick={() => {
+                    setActiveTool(item.id);
+                    if (item.id === 'convert') {
+                      resetPdfTools();
+                    } else {
+                      setPdfTool(item.id);
+                      resetUploadState();
+                      resetPdfTools();
+                    }
+                  }}
+                >
+                  <span className="workspace-tool-label">{item.label}</span>
+                  <span className="workspace-tool-meta">{item.meta}</span>
+                </button>
+              ))}
+            </div>
+
+            {activeTool === 'convert' ? (
+              <div className="workspace-tool-body">
+                {conversionStatus === 'uploading' || conversionStatus === 'converting' ? (
+                  <div className="progress-container">
+                    <div className="spinner"></div>
+                    <div className="progress-title">Processing PDF</div>
+                    <div className="progress-subtitle">{progressMsg}</div>
+                  </div>
+                ) : conversionStatus === 'success' ? (
+                  <div className="progress-container" style={{ gap: '16px' }}>
+                    <div style={{ fontSize: '48px', color: 'var(--accent-green)' }}>✓</div>
+                    <div className="progress-title">Conversion Successful!</div>
+                    <div style={{ fontSize: '13px', background: '#F1F5F9', border: '1px solid #E2E8F0', padding: '12px', borderRadius: '6px', width: '100%', wordBreak: 'break-all', fontWeight: 600 }}>
+                      {downloadFilename}
+                    </div>
+                    
+                    {downloadUrl === '#mock-download' ? (
+                      <button className="btn btn-success" onClick={() => alert("Mock File Downloaded successfully!")}>
+                        Download Word Document
+                      </button>
+                    ) : (
+                      <a href={downloadUrl} download={downloadFilename} className="btn btn-success" style={{ textDecoration: 'none' }}>
+                        Download Word Document
+                      </a>
+                    )}
+                    
+                    <button className="btn" style={{ background: '#E2E8F0', color: 'var(--text-primary)', marginTop: '8px' }} onClick={resetUploadState}>
+                      Convert Another File
+                    </button>
                   </div>
                 ) : (
                   <div>
-                    {!file ? (
-                      <div 
-                        className={`dropzone ${dragActive ? 'drag-active' : ''}`}
-                        onDragEnter={handleDrag}
-                        onDragOver={handleDrag}
-                        onDragLeave={handleDrag}
-                        onDrop={handleDrop}
-                      >
-                        <input 
-                          type="file" 
-                          id="file-upload" 
-                          className="input-control" 
-                          accept=".pdf"
-                          style={{ display: 'none' }}
-                          onChange={handleFileChange}
-                        />
-                        <label htmlFor="file-upload" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                          <div className="dropzone-icon">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                            </svg>
-                          </div>
-                          <span className="dropzone-text">Tap or Drag PDF test paper</span>
-                          <span className="dropzone-subtext">Max size: 25MB (.pdf only)</span>
-                        </label>
+                    <div className="section-title">
+                      <span>Upload Test Paper</span>
+                      <span style={{ fontSize: '11px', color: 'var(--accent-blue)' }}>PDF to DOCX</span>
+                    </div>
+                    
+                    {(user.status !== 'active' && user.status !== 'trial') ? (
+                      <div style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--text-muted)' }}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5" style={{ margin: '0 auto 12px auto', opacity: 0.5 }}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                        <p style={{ fontSize: '14px', fontWeight: 600 }}>Converter Locked</p>
+                        <p style={{ fontSize: '12px', marginTop: '4px' }}>
+                          {user.status === 'pending' 
+                            ? "Free trial limit reached or pending subscription. Please contact support." 
+                            : "Your account is locked. Please contact support."}
+                        </p>
                       </div>
                     ) : (
-                      <div style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                          <div style={{ fontSize: '28px', color: '#EF4444' }}>📄</div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: '14px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</div>
-                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{formatBytes(file.size)}</div>
+                      <div>
+                        {!file ? (
+                          <div 
+                            className={`dropzone ${dragActive ? 'drag-active' : ''}`}
+                            onDragEnter={handleDrag}
+                            onDragOver={handleDrag}
+                            onDragLeave={handleDrag}
+                            onDrop={handleDrop}
+                          >
+                            <input 
+                              type="file" 
+                              id="file-upload" 
+                              className="input-control" 
+                              accept=".pdf"
+                              style={{ display: 'none' }}
+                              onChange={handleFileChange}
+                            />
+                            <label htmlFor="file-upload" style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                              <div className="dropzone-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                </svg>
+                              </div>
+                              <span className="dropzone-text">Tap or Drag PDF test paper</span>
+                              <span className="dropzone-subtext">Max size: 25MB (.pdf only)</span>
+                            </label>
                           </div>
-                          <button className="btn-icon-only" style={{ borderRadius: '4px' }} onClick={() => { setFile(null); setPdfPreview(null); }}>✕</button>
-                        </div>
-                        {pdfPreview && (
-                          <div className="pdf-preview-strip">
-                            <img src={pdfPreview.preview_image} alt="First page preview" className="pdf-preview-image" />
-                            <div className="pdf-preview-meta">
-                              <span>{pdfPreview.page_count} page{pdfPreview.page_count !== 1 ? 's' : ''}</span>
-                              <span>{formatBytes(pdfPreview.file_size)}</span>
+                        ) : (
+                          <div style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                              <div style={{ fontSize: '28px', color: '#EF4444' }}>📄</div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: '14px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</div>
+                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{formatBytes(file.size)}</div>
+                              </div>
+                              <button className="btn-icon-only" style={{ borderRadius: '4px' }} onClick={() => { setFile(null); setPdfPreview(null); }}>✕</button>
                             </div>
+                            {pdfPreview && (
+                              <div className="pdf-preview-strip">
+                                <img src={pdfPreview.preview_image} alt="First page preview" className="pdf-preview-image" />
+                                <div className="pdf-preview-meta">
+                                  <span>{pdfPreview.page_count} page{pdfPreview.page_count !== 1 ? 's' : ''}</span>
+                                  <span>{formatBytes(pdfPreview.file_size)}</span>
+                                </div>
+                              </div>
+                            )}
+                            <button className="btn btn-primary" onClick={startConversion}>
+                              Convert to Editable Word
+                            </button>
                           </div>
                         )}
-                        <button className="btn btn-primary" onClick={startConversion}>
-                          Convert to Editable Word
-                        </button>
                       </div>
                     )}
                   </div>
                 )}
               </div>
-            )}
-          </div>
-
-          {/* PDF TOOLS */}
-          <div className="glass-panel pdf-tools-panel">
-            <div className="section-title">
-              <span>PDF Tools</span>
-              <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Clean & quick</span>
-            </div>
-
-            {(user.status !== 'active' && user.status !== 'trial') ? (
-              <div className="empty-state">PDF tools unlock with your converter.</div>
             ) : (
-              <div className="pdf-tools-body">
-                <div className="tool-tabs" aria-label="PDF tool selector">
-                  {[
-                    { id: 'split', label: 'Split' },
-                    { id: 'merge', label: 'Merge' },
-                    { id: 'extract', label: 'Extract' }
-                  ].map(item => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      className={`tool-tab ${pdfTool === item.id ? 'active' : ''}`}
-                      onClick={() => {
-                        setPdfTool(item.id);
-                        resetPdfTools();
-                      }}
-                    >
-                      {item.label}
-                    </button>
-                  ))}
+              <div className="workspace-tool-body">
+                <div className="section-title">
+                  <span>{pdfTool === 'split' ? 'Split PDF' : pdfTool === 'merge' ? 'Merge PDFs' : 'Extract Pages'}</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Clean & quick</span>
                 </div>
 
-                <div className="tool-upload-row">
-                  <input
-                    type="file"
-                    id="pdf-tool-upload"
-                    accept=".pdf"
-                    multiple={pdfTool === 'merge'}
-                    className="input-control"
-                    style={{ display: 'none' }}
-                    onChange={handleToolFilesChange}
-                  />
-                  <label htmlFor="pdf-tool-upload" className="tool-file-button">
-                    Choose PDF{pdfTool === 'merge' ? 's' : ''}
-                  </label>
-                  <span className="tool-limit-note">
-                    {pdfTool === 'merge'
-                      ? `Max ${PDF_MERGE_FILE_LIMIT} files / ${PDF_MERGE_TOTAL_LIMIT_MB}MB total`
-                      : `Max ${PDF_TOOL_FILE_LIMIT_MB}MB`}
-                  </span>
-                </div>
-
-                {toolFiles.length > 0 && (
-                  <div className="tool-file-summary">
-                    <div className="tool-file-list">
-                      {toolFiles.map(item => (
-                        <span key={`${item.name}-${item.size}`} title={item.name}>
-                          {item.name}
-                        </span>
-                      ))}
+                {(user.status !== 'active' && user.status !== 'trial') ? (
+                  <div className="empty-state">PDF tools unlock with your converter.</div>
+                ) : (
+                  <div className="pdf-tools-body">
+                    <div className="tool-upload-row">
+                      <input
+                        type="file"
+                        id="pdf-tool-upload"
+                        accept=".pdf"
+                        multiple={pdfTool === 'merge'}
+                        className="input-control"
+                        style={{ display: 'none' }}
+                        onChange={handleToolFilesChange}
+                      />
+                      <label htmlFor="pdf-tool-upload" className="tool-file-button">
+                        Choose PDF{pdfTool === 'merge' ? 's' : ''}
+                      </label>
+                      <span className="tool-limit-note">
+                        {pdfTool === 'merge'
+                          ? `Max ${PDF_MERGE_FILE_LIMIT} files / ${PDF_MERGE_TOTAL_LIMIT_MB}MB total`
+                          : `Max ${PDF_TOOL_FILE_LIMIT_MB}MB`}
+                      </span>
                     </div>
-                    {toolPreview && (
-                      <div className="pdf-preview-strip compact">
-                        <img src={toolPreview.preview_image} alt="First page preview" className="pdf-preview-image" />
-                        <div className="pdf-preview-meta">
-                          <span>{toolPreview.page_count} page{toolPreview.page_count !== 1 ? 's' : ''}</span>
-                          <span>{formatBytes(toolPreview.file_size)}</span>
+
+                    {toolFiles.length > 0 && (
+                      <div className="tool-file-summary">
+                        <div className="tool-file-list">
+                          {toolFiles.map(item => (
+                            <span key={`${item.name}-${item.size}`} title={item.name}>
+                              {item.name}
+                            </span>
+                          ))}
                         </div>
+                        {toolPreview && (
+                          <div className="pdf-preview-strip compact">
+                            <img src={toolPreview.preview_image} alt="First page preview" className="pdf-preview-image" />
+                            <div className="pdf-preview-meta">
+                              <span>{toolPreview.page_count} page{toolPreview.page_count !== 1 ? 's' : ''}</span>
+                              <span>{formatBytes(toolPreview.file_size)}</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
-                  </div>
-                )}
 
-                {pdfTool === 'extract' && (
-                  <div className="input-group" style={{ marginBottom: 0 }}>
-                    <label className="input-label">Pages</label>
-                    <input
-                      type="text"
-                      className="input-control"
-                      placeholder="1,3-5"
-                      value={extractPages}
-                      onChange={e => setExtractPages(e.target.value)}
-                    />
-                  </div>
-                )}
+                    {pdfTool === 'extract' && (
+                      <div className="input-group" style={{ marginBottom: 0 }}>
+                        <label className="input-label">Pages</label>
+                        <input
+                          type="text"
+                          className="input-control"
+                          placeholder="1,3-5"
+                          value={extractPages}
+                          onChange={e => setExtractPages(e.target.value)}
+                        />
+                      </div>
+                    )}
 
-                {toolDownloadUrl ? (
-                  <a href={toolDownloadUrl} download={toolDownloadFilename} className="btn btn-success" style={{ textDecoration: 'none' }}>
-                    Download {toolDownloadFilename}
-                  </a>
-                ) : (
-                  <button className="btn btn-primary" onClick={runPdfTool} disabled={toolStatus === 'working'}>
-                    {toolStatus === 'working'
-                      ? 'Working...'
-                      : pdfTool === 'split'
-                        ? 'Split into Pages'
-                        : pdfTool === 'merge'
-                          ? 'Merge PDFs'
-                          : 'Extract Pages'}
-                  </button>
+                    {toolDownloadUrl ? (
+                      <a href={toolDownloadUrl} download={toolDownloadFilename} className="btn btn-success" style={{ textDecoration: 'none' }}>
+                        Download {toolDownloadFilename}
+                      </a>
+                    ) : (
+                      <button className="btn btn-primary" onClick={runPdfTool} disabled={toolStatus === 'working'}>
+                        {toolStatus === 'working'
+                          ? 'Working...'
+                          : pdfTool === 'split'
+                            ? 'Split into Pages'
+                            : pdfTool === 'merge'
+                              ? 'Merge PDFs'
+                              : 'Extract Pages'}
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             )}
