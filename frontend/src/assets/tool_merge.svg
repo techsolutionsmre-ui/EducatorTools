@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 260" role="img" aria-labelledby="title desc">
+  <title id="title">Merge PDFs</title>
+  <desc id="desc">Multiple PDF pages combining into one document.</desc>
+  <rect width="420" height="260" rx="18" fill="#FFF7ED"/>
+  <rect x="48" y="42" width="82" height="112" rx="10" fill="#FFFFFF" stroke="#FED7AA" stroke-width="3"/>
+  <rect x="68" y="72" width="42" height="8" rx="4" fill="#CBD5E1"/>
+  <rect x="68" y="96" width="32" height="7" rx="3.5" fill="#E2E8F0"/>
+  <rect x="92" y="106" width="82" height="112" rx="10" fill="#FFFFFF" stroke="#FDBA74" stroke-width="3"/>
+  <rect x="112" y="136" width="42" height="8" rx="4" fill="#CBD5E1"/>
+  <rect x="112" y="160" width="32" height="7" rx="3.5" fill="#E2E8F0"/>
+  <path d="M196 130h56" stroke="#EA580C" stroke-width="8" stroke-linecap="round"/>
+  <path d="M238 108l26 22-26 22" fill="none" stroke="#EA580C" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="278" y="46" width="106" height="172" rx="13" fill="#FFFFFF" stroke="#FDBA74" stroke-width="3"/>
+  <rect x="306" y="82" width="50" height="10" rx="5" fill="#CBD5E1"/>
+  <rect x="306" y="112" width="42" height="8" rx="4" fill="#E2E8F0"/>
+  <rect x="306" y="138" width="50" height="8" rx="4" fill="#E2E8F0"/>
+  <rect x="306" y="170" width="50" height="24" rx="7" fill="#EA580C"/>
+  <text x="331" y="187" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="14" font-weight="700" text-anchor="middle">PDF</text>
+</svg>

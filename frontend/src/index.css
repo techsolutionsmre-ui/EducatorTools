@@ -1115,47 +1115,117 @@ body {
   line-height: 1.35;
 }
 
-.landing-tools-strip {
+.landing-tools-section {
   display: grid;
+  gap: 16px;
+  width: 100%;
+}
+
+.landing-tools-header {
+  text-align: center;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.landing-tools-header h3 {
+  color: var(--text-primary);
+  font-size: 24px;
+  line-height: 1.15;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.landing-tools-header p {
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.landing-tool-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.landing-tool-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) auto;
   gap: 14px;
-  padding: 16px;
-  background: #FFFFFF;
+  align-items: center;
+  width: 100%;
+  min-height: 132px;
+  padding: 14px;
   border: 1px solid var(--panel-border);
   border-radius: var(--border-radius-md);
+  background: #FFFFFF;
+  color: var(--text-primary);
   text-align: left;
+  cursor: pointer;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
+  transition: border-color 0.16s ease, transform 0.16s ease;
 }
 
-.landing-tools-copy h3 {
-  font-size: 16px;
+.landing-tool-card:hover {
+  border-color: rgba(2, 132, 199, 0.28);
+  transform: translateY(-2px);
+}
+
+.landing-tool-card-primary {
+  min-height: 174px;
+  border-color: rgba(2, 132, 199, 0.22);
+  background: linear-gradient(180deg, #FFFFFF 0%, #F0F9FF 100%);
+}
+
+.landing-tool-image {
+  width: 96px;
+  aspect-ratio: 1 / 0.75;
+  object-fit: contain;
+}
+
+.landing-tool-card-primary .landing-tool-image {
+  width: 112px;
+}
+
+.landing-tool-content {
+  min-width: 0;
+}
+
+.landing-tool-label {
+  display: inline-flex;
+  margin-bottom: 6px;
+  padding: 4px 7px;
+  border-radius: 4px;
+  background: rgba(2, 132, 199, 0.1);
+  color: var(--accent-blue);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.landing-tool-content h4 {
+  font-size: 18px;
+  line-height: 1.2;
   font-weight: 800;
   color: var(--text-primary);
-  margin-bottom: 3px;
+  margin-bottom: 5px;
 }
 
-.landing-tools-copy p {
+.landing-tool-card-primary .landing-tool-content h4 {
+  font-size: 23px;
+}
+
+.landing-tool-content p {
+  color: var(--text-secondary);
   font-size: 12.5px;
   line-height: 1.45;
-  color: var(--text-secondary);
 }
 
-.landing-tools-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.landing-tools-list span {
-  min-height: 34px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 10px;
-  border-radius: var(--border-radius-sm);
-  background: #F8FAFC;
-  border: 1px solid #E2E8F0;
-  color: var(--text-primary);
-  font-size: 12px;
-  font-weight: 800;
+.landing-tool-arrow {
+  color: var(--text-muted);
+  font-size: 28px;
+  line-height: 1;
+  font-weight: 300;
 }
 
 /* Workflow Steps */
@@ -1332,22 +1402,57 @@ body {
     line-height: 1.45;
   }
 
-  .landing-tools-strip {
-    grid-template-columns: minmax(0, 1fr) minmax(380px, auto);
-    align-items: center;
-    padding: 18px 20px;
+  .landing-tools-section {
+    gap: 22px;
   }
 
-  .landing-tools-copy h3 {
-    font-size: 18px;
+  .landing-tools-header h3 {
+    font-size: 36px;
   }
 
-  .landing-tools-copy p {
+  .landing-tools-header p {
+    font-size: 17px;
+  }
+
+  .landing-tool-grid {
+    grid-template-columns: minmax(0, 1.05fr) repeat(2, minmax(0, 0.95fr));
+    align-items: stretch;
+    gap: 16px;
+  }
+
+  .landing-tool-card {
+    min-height: 190px;
+    grid-template-columns: 104px minmax(0, 1fr) auto;
+    padding: 18px;
+  }
+
+  .landing-tool-card-primary {
+    grid-row: span 2;
+    min-height: 396px;
+    grid-template-columns: 1fr;
+    align-content: start;
+  }
+
+  .landing-tool-card-primary .landing-tool-image {
+    width: 100%;
+    max-width: 390px;
+    justify-self: center;
+  }
+
+  .landing-tool-card-primary .landing-tool-content h4 {
+    font-size: 30px;
+  }
+
+  .landing-tool-content h4 {
+    font-size: 21px;
+  }
+
+  .landing-tool-content p {
     font-size: 14px;
   }
 
-  .landing-tools-list {
-    grid-template-columns: repeat(4, minmax(82px, 1fr));
+  .landing-tool-arrow {
+    font-size: 34px;
   }
 
   .workflow-section {

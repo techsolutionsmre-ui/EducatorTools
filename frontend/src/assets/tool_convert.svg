@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 260" role="img" aria-labelledby="title desc">
+  <title id="title">PDF to Word conversion</title>
+  <desc id="desc">A PDF test paper converting into an editable Word document.</desc>
+  <rect width="420" height="260" rx="18" fill="#F0F9FF"/>
+  <path d="M40 54a14 14 0 0 1 14-14h118l44 44v130a14 14 0 0 1-14 14H54a14 14 0 0 1-14-14V54z" fill="#FFFFFF" stroke="#BAE6FD" stroke-width="3"/>
+  <path d="M172 40v40a10 10 0 0 0 10 10h34" fill="#E0F2FE" stroke="#BAE6FD" stroke-width="3"/>
+  <rect x="68" y="112" width="116" height="12" rx="6" fill="#CBD5E1"/>
+  <rect x="68" y="138" width="92" height="10" rx="5" fill="#E2E8F0"/>
+  <rect x="68" y="162" width="116" height="10" rx="5" fill="#E2E8F0"/>
+  <path d="M92 198c18-34 30-34 46 0 12-24 22-24 34 0" fill="none" stroke="#0284C7" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="78" y="62" width="58" height="34" rx="8" fill="#EF4444"/>
+  <text x="107" y="84" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="18" font-weight="700" text-anchor="middle">PDF</text>
+  <path d="M224 130h60" stroke="#0284C7" stroke-width="10" stroke-linecap="round"/>
+  <path d="M270 102l38 33-38 33" fill="none" stroke="#0284C7" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="286" y="50" width="94" height="158" rx="12" fill="#FFFFFF" stroke="#BFDBFE" stroke-width="3"/>
+  <rect x="306" y="78" width="54" height="36" rx="8" fill="#2563EB"/>
+  <text x="333" y="102" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="18" font-weight="700" text-anchor="middle">W</text>
+  <rect x="306" y="132" width="54" height="8" rx="4" fill="#CBD5E1"/>
+  <rect x="306" y="152" width="42" height="8" rx="4" fill="#E2E8F0"/>
+  <rect x="306" y="172" width="54" height="8" rx="4" fill="#E2E8F0"/>
+</svg>

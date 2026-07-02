@@ -5,6 +5,11 @@ import featureLayout from './assets/feature_layout.png';
 import featureMath from './assets/feature_math.png';
 import featureSecure from './assets/feature_secure.png';
 import authBanner from './assets/auth_banner.png';
+import toolConvert from './assets/tool_convert.svg';
+import toolPreviewImg from './assets/tool_preview.svg';
+import toolSplit from './assets/tool_split.svg';
+import toolMerge from './assets/tool_merge.svg';
+import toolExtract from './assets/tool_extract.svg';
 
 // Support email for activation inquiries
 const CONTACT_EMAIL = "techsolutions.mre@gmail.com";
@@ -794,16 +799,57 @@ export default function App() {
             </div>
           </div>
 
-          <div className="landing-tools-strip">
-            <div className="landing-tools-copy">
-              <h3>PDF tools included</h3>
-              <p>Preview, split, merge, and extract pages before converting.</p>
+          <div className="landing-tools-section">
+            <div className="landing-tools-header">
+              <h3>PDF tools for teachers</h3>
+              <p>Convert, preview, split, merge, and extract exam papers from one clean workspace.</p>
             </div>
-            <div className="landing-tools-list" aria-label="Included PDF tools">
-              <span>Preview</span>
-              <span>Split</span>
-              <span>Merge</span>
-              <span>Extract</span>
+            <div className="landing-tool-grid">
+              <button className="landing-tool-card landing-tool-card-primary" onClick={() => { setView('register'); setError(''); setSuccess(''); }}>
+                <img src={toolConvert} alt="" className="landing-tool-image" />
+                <div className="landing-tool-content">
+                  <span className="landing-tool-label">Most used</span>
+                  <h4>PDF to Word</h4>
+                  <p>Convert test papers into editable Word documents while preserving layout, tables, and formulas.</p>
+                </div>
+                <span className="landing-tool-arrow">›</span>
+              </button>
+
+              <button className="landing-tool-card" onClick={() => { setView('register'); setError(''); setSuccess(''); }}>
+                <img src={toolPreviewImg} alt="" className="landing-tool-image" />
+                <div className="landing-tool-content">
+                  <h4>Preview PDF</h4>
+                  <p>Check the first page, page count, and file size before working with the document.</p>
+                </div>
+                <span className="landing-tool-arrow">›</span>
+              </button>
+
+              <button className="landing-tool-card" onClick={() => { setView('register'); setError(''); setSuccess(''); }}>
+                <img src={toolSplit} alt="" className="landing-tool-image" />
+                <div className="landing-tool-content">
+                  <h4>Split PDF</h4>
+                  <p>Turn one PDF into separate page files for sharing selected questions or sections.</p>
+                </div>
+                <span className="landing-tool-arrow">›</span>
+              </button>
+
+              <button className="landing-tool-card" onClick={() => { setView('register'); setError(''); setSuccess(''); }}>
+                <img src={toolMerge} alt="" className="landing-tool-image" />
+                <div className="landing-tool-content">
+                  <h4>Merge PDF</h4>
+                  <p>Combine multiple PDFs into one neat document with built-in file size limits.</p>
+                </div>
+                <span className="landing-tool-arrow">›</span>
+              </button>
+
+              <button className="landing-tool-card" onClick={() => { setView('register'); setError(''); setSuccess(''); }}>
+                <img src={toolExtract} alt="" className="landing-tool-image" />
+                <div className="landing-tool-content">
+                  <h4>Extract Pages</h4>
+                  <p>Keep only the pages you need, like a memo, section, or learner activity.</p>
+                </div>
+                <span className="landing-tool-arrow">›</span>
+              </button>
             </div>
           </div>
 

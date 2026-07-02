@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 260" role="img" aria-labelledby="title desc">
+  <title id="title">Split PDF pages</title>
+  <desc id="desc">One PDF splitting into separate page files.</desc>
+  <rect width="420" height="260" rx="18" fill="#F0FDF4"/>
+  <rect x="44" y="54" width="126" height="158" rx="12" fill="#FFFFFF" stroke="#BBF7D0" stroke-width="3"/>
+  <rect x="68" y="86" width="78" height="12" rx="6" fill="#CBD5E1"/>
+  <rect x="68" y="118" width="58" height="10" rx="5" fill="#E2E8F0"/>
+  <rect x="68" y="144" width="78" height="10" rx="5" fill="#E2E8F0"/>
+  <rect x="78" y="174" width="58" height="24" rx="7" fill="#16A34A"/>
+  <text x="107" y="191" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="14" font-weight="700" text-anchor="middle">PDF</text>
+  <path d="M188 132h44" stroke="#16A34A" stroke-width="8" stroke-linecap="round"/>
+  <path d="M218 112l24 20-24 20" fill="none" stroke="#16A34A" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="260" y="38" width="78" height="94" rx="10" fill="#FFFFFF" stroke="#BBF7D0" stroke-width="3"/>
+  <rect x="282" y="70" width="34" height="8" rx="4" fill="#CBD5E1"/>
+  <rect x="282" y="92" width="26" height="7" rx="3.5" fill="#E2E8F0"/>
+  <rect x="302" y="128" width="78" height="94" rx="10" fill="#FFFFFF" stroke="#BBF7D0" stroke-width="3"/>
+  <rect x="324" y="160" width="34" height="8" rx="4" fill="#CBD5E1"/>
+  <rect x="324" y="182" width="26" height="7" rx="3.5" fill="#E2E8F0"/>
+</svg>
